@@ -1,0 +1,26 @@
+{
+  "name": "smart-group-tab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Real-time collaborative consumption platform for HORECA. Item-level payment ledger with atomic share claiming.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "db:migrate": "node scripts/db.mjs migrate",
+    "db:seed": "node scripts/db.mjs seed",
+    "db:reset": "node scripts/db.mjs reset",
+    "verify:schema": "node scripts/verify-schema.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "wompi": "node src/wompi/server.mjs",
+    "audit": "node scripts/audit-invariants.mjs",
+    "demo": "node scripts/demo.mjs",
+    "web": "node src/api/server.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "pg": "^8.23.0",
+    "qrcode": "^1.5.4"
+  }
+}

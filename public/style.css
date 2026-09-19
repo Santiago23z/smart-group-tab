@@ -1,0 +1,181 @@
+/* Smart Group Tab — a phone screen in a dark bar.
+   Large touch targets, high contrast, nothing that needs two hands. */
+
+:root {
+  --bg: #14110f;
+  --surface: #1e1a17;
+  --surface-2: #2a2421;
+  --line: #3a322d;
+  --text: #f2ece6;
+  --muted: #a2968c;
+  --accent: #e8944a;
+  --accent-ink: #1a1105;
+  --ok: #6fbf73;
+  --warn: #e4c05a;
+  --err: #e2705f;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+h1 { font-size: 1.6rem; margin: 0 0 .4rem; letter-spacing: -.02em; }
+h2 { font-size: 1.15rem; margin: 0; letter-spacing: -.01em; }
+h3 { font-size: 1.1rem; margin: 0 0 .2rem; }
+
+.muted { color: var(--muted); }
+.tiny { font-size: .8rem; }
+.eyebrow { color: var(--muted); font-size: .75rem; text-transform: uppercase;
+           letter-spacing: .09em; margin: 0 0 .2rem; }
+.error { color: var(--err); font-size: .9rem; margin-top: .75rem; }
+
+button {
+  font: inherit; font-weight: 600; border: 0; border-radius: var(--radius);
+  background: var(--accent); color: var(--accent-ink);
+  padding: .85rem 1.1rem; cursor: pointer;
+}
+button:active { transform: scale(.985); }
+button.ghost { background: var(--surface-2); color: var(--text); }
+button:disabled { opacity: .45; }
+
+input {
+  font: inherit; width: 100%; padding: .85rem 1rem;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--radius); color: var(--text);
+}
+input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Join ------------------------------------------------------------------ */
+#join { min-height: 100dvh; display: grid; place-items: center; padding: 1.5rem; }
+.join-box { width: 100%; max-width: 26rem; }
+.join-box form { display: grid; gap: .7rem; margin-top: 1.4rem; }
+
+/* Table ----------------------------------------------------------------- */
+#table { padding: 1rem 1rem 7rem; max-width: 34rem; margin: 0 auto; }
+
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.who { display: flex; flex-wrap: wrap; gap: .3rem; justify-content: flex-end; }
+.who span {
+  font-size: .72rem; padding: .22rem .5rem; border-radius: 999px;
+  background: var(--surface-2); color: var(--muted);
+}
+.who span.me { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+.tabs { display: flex; gap: .4rem; margin: 1rem 0; }
+.tabs button {
+  flex: 1; background: var(--surface); color: var(--muted); font-weight: 500;
+  padding: .6rem; border: 1px solid transparent;
+}
+.tabs button.active { color: var(--text); border-color: var(--line); background: var(--surface-2); }
+.badge {
+  display: inline-block; min-width: 1.35em; padding: 0 .35em; margin-left: .25em;
+  background: var(--accent); color: var(--accent-ink);
+  border-radius: 999px; font-size: .75rem; font-weight: 700;
+}
+.badge:empty, .badge[data-zero] { display: none; }
+
+/* Menu ------------------------------------------------------------------ */
+.cat { color: var(--muted); font-size: .75rem; text-transform: uppercase;
+       letter-spacing: .08em; margin: 1.1rem 0 .5rem; }
+
+.row {
+  display: flex; align-items: center; gap: .8rem;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: .8rem .9rem; margin-bottom: .5rem;
+}
+.row .grow { flex: 1; min-width: 0; }
+.row .name { font-weight: 600; }
+.row .sub { color: var(--muted); font-size: .82rem; }
+.row .price { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row button.add {
+  width: 2.4rem; height: 2.4rem; padding: 0; border-radius: 50%;
+  font-size: 1.3rem; line-height: 1; flex: none;
+}
+
+/* Cart ------------------------------------------------------------------ */
+.item { display: block; }
+.item .top { display: flex; gap: .8rem; align-items: baseline; }
+.shares { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .55rem; }
+.chip {
+  font-size: .75rem; padding: .22rem .55rem; border-radius: 999px;
+  background: var(--surface-2); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.chip.settled { background: rgba(111,191,115,.16); color: var(--ok); }
+.chip.held { background: rgba(228,192,90,.14); color: var(--warn); }
+.item-actions { display: flex; gap: .4rem; margin-top: .6rem; }
+.item-actions button { padding: .4rem .7rem; font-size: .8rem; font-weight: 500; }
+
+.owed { margin-top: 1.4rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.owed .line { display: flex; justify-content: space-between; padding: .35rem 0;
+              font-variant-numeric: tabular-nums; }
+.owed .line.total { border-top: 1px solid var(--line); margin-top: .5rem;
+                    padding-top: .7rem; font-weight: 700; }
+.owed .state { font-size: .78rem; }
+.owed .state.ok { color: var(--ok); }
+.owed .state.pending { color: var(--warn); }
+
+#round-actions { margin-top: 1.3rem; display: grid; gap: .5rem; }
+#other-rounds { margin-top: 1.6rem; }
+
+.banner {
+  border-radius: var(--radius); padding: .85rem 1rem; margin-top: 1.2rem;
+  background: var(--surface-2); border-left: 3px solid var(--accent);
+}
+.banner.ok { border-left-color: var(--ok); }
+.banner strong { display: block; margin-bottom: .15rem; }
+
+.empty { color: var(--muted); text-align: center; padding: 2.5rem 1rem; }
+
+/* Bottom bar ------------------------------------------------------------ */
+footer {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .85rem 1rem calc(.85rem + env(safe-area-inset-bottom));
+  background: rgba(20,17,15,.93); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+}
+footer strong { display: block; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+footer .muted { font-size: .78rem; }
+
+/* Sheets ---------------------------------------------------------------- */
+.sheet {
+  position: fixed; inset: 0; z-index: 20;
+  background: rgba(0,0,0,.6); display: flex; align-items: flex-end;
+}
+.sheet-body {
+  width: 100%; max-width: 34rem; margin: 0 auto;
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  padding: 1.4rem 1.2rem calc(1.4rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+.sheet-actions { display: flex; gap: .6rem; margin-top: 1.2rem; }
+.sheet-actions button { flex: 1; }
+
+.amount { font-size: 2.2rem; font-weight: 700; margin: .3rem 0 .1rem;
+          font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+
+.person {
+  display: flex; align-items: center; gap: .7rem; padding: .7rem .2rem;
+  border-bottom: 1px solid var(--line);
+}
+.person input { width: 1.25rem; height: 1.25rem; flex: none; accent-color: var(--accent); }
+
+.tip { display: block; margin-top: 1.1rem; color: var(--muted); font-size: .85rem; }
+.tip input { margin-top: .35rem; }
+
+/* Toast ----------------------------------------------------------------- */
+.toast {
+  position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%);
+  background: var(--surface-2); border: 1px solid var(--line);
+  padding: .7rem 1rem; border-radius: var(--radius); z-index: 30;
+  max-width: 90vw; text-align: center; font-size: .9rem;
+}
+.toast.bad { border-color: var(--err); color: var(--err); }

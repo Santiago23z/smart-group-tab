@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14110f">
+<title>Smart Group Tab</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- Entrar ------------------------------------------------------------- -->
+<section id="join" class="screen">
+  <div class="join-box">
+    <p class="eyebrow" id="join-venue">…</p>
+    <h1>¿Cómo te decimos?</h1>
+    <p class="muted">Sin cuenta, sin descargar nada. Solo un apodo para que la mesa sepa qué pediste.</p>
+    <form id="join-form">
+      <input id="nickname" type="text" placeholder="Tu apodo" maxlength="40" autocomplete="off" required>
+      <button type="submit">Entrar a la mesa</button>
+    </form>
+    <p class="error" id="join-error" hidden></p>
+  </div>
+</section>
+
+<!-- Mesa --------------------------------------------------------------- -->
+<section id="table" class="screen" hidden>
+  <header>
+    <div>
+      <p class="eyebrow" id="table-label">…</p>
+      <h2 id="round-label">Ronda 1</h2>
+    </div>
+    <div class="who" id="who"></div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="menu" class="active">Carta</button>
+    <button data-tab="cart">Cuenta <span class="badge" id="cart-count">0</span></button>
+  </nav>
+
+  <div id="tab-menu" class="tab-panel">
+    <div id="menu-list"></div>
+  </div>
+
+  <div id="tab-cart" class="tab-panel" hidden>
+    <div id="cart-list"></div>
+    <div id="owed" class="owed"></div>
+    <div id="round-actions"></div>
+    <div id="other-rounds"></div>
+  </div>
+
+  <footer id="bar" hidden>
+    <div>
+      <span class="muted" id="bar-label">Tu parte</span>
+      <strong id="bar-amount">$0</strong>
+    </div>
+    <button id="bar-action">Pagar lo mío</button>
+  </footer>
+</section>
+
+<!-- Compartir ítem ------------------------------------------------------ -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-body">
+    <h3 id="sheet-title">Compartir</h3>
+    <p class="muted">¿Entre quiénes se divide?</p>
+    <div id="sheet-people"></div>
+    <div class="sheet-actions">
+      <button class="ghost" id="sheet-cancel">Cancelar</button>
+      <button id="sheet-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pagar --------------------------------------------------------------- -->
+<div id="pay" class="sheet" hidden>
+  <div class="sheet-body">
+    <h3>Tu parte</h3>
+    <p class="amount" id="pay-amount">$0</p>
+    <p class="muted" id="pay-detail"></p>
+    <label class="tip">Propina
+      <input id="tip" type="number" min="0" step="1000" value="0" inputmode="numeric">
+    </label>
+    <p class="muted tiny">La propina nunca cuenta para liberar el pedido a cocina.</p>
+    <div class="sheet-actions">
+      <button class="ghost" id="pay-cancel">Ahora no</button>
+      <button id="pay-confirm">Pagar</button>
+    </div>
+    <p class="error" id="pay-error" hidden></p>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
