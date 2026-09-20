@@ -344,6 +344,42 @@ await check('a round dispatches to each channel at most once', async () => {
   await db.exec(`insert into dispatches (round_id, channel) values ('${roundId}', 'print')`)
 })
 
+// The kitchen ticket is the one payload that leaves the system for a screen
+// nobody at the table controls. Money must not ride along — a balance on the
+// pass-through display is a privacy problem, not a formatting one. Asserting on
+// the shape rather than on a fixed field list means this still fails if someone
+// later adds a money field to dispatch_ticket().
+await check('the kitchen ticket carries no money, at any depth', async () => {
+  const r = await one(`select dispatch_ticket('${roundId}') as t`)
+  const forbidden = /amount|total|price|owed|balance|share|tip|refund|reference|psp|prepaid/i
+  const offenders = []
+  const walk = (node, path) => {
+    if (node === null || typeof node !== 'object') return
+    for (const [k, v] of Object.entries(node)) {
+      const here = path ? `${path}.${k}` : k
+      if (!Array.isArray(node) && forbidden.test(k)) offenders.push(here)
+      walk(v, here)
+    }
+  }
+  walk(typeof r.t === 'string' ? JSON.parse(r.t) : r.t, '')
+  if (offenders.length) throw new Error(`financial keys in the ticket: ${offenders.join(', ')}`)
+})
+
+await check('the kitchen ticket names the table and what to cook', async () => {
+  const r = await one(`select dispatch_ticket('${roundId}') as t`)
+  const t = typeof r.t === 'string' ? JSON.parse(r.t) : r.t
+  for (const key of ['round_number', 'venue', 'table', 'items']) {
+    if (!(key in t)) throw new Error(`ticket is missing ${key}`)
+  }
+  if (!t.table.label) throw new Error('ticket does not say which table')
+  if (!Array.isArray(t.items)) throw new Error('ticket has no item list')
+  for (const item of t.items) {
+    for (const key of ['name', 'quantity', 'ordered_by']) {
+      if (!(key in item)) throw new Error(`ticket item is missing ${key}`)
+    }
+  }
+})
+
 await check('refunds cannot exceed what was paid', async () => {
   await rejects(
     `insert into refunds (contribution_id, amount, reason, kind)

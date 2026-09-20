@@ -25,7 +25,7 @@ construction. That is the whole design.
 | 3.7 | Payment creation — Web Checkout, signed, reference-threaded | **verified** (88/88 total) |
 | 3.8 | Diner PWA — shared cart, fractional payment, on a phone | **verified in a browser** (12 specs) |
 | — | State names aligned with CLAUDE.md; first three specs seeded | **147 checks total** |
-| 4 | Dispatch outbox and worker | not started |
+| 4 | Dispatch outbox and worker | **built**, mutations verified — one concurrency test is flaky |
 | 5 | KDS web (orders + staff alerts) | not started |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
@@ -37,8 +37,6 @@ was written but called by nothing.
 
 Still missing before a table can actually eat:
 
-- **The dispatch worker.** Rows land in `dispatches` and nothing delivers them,
-  so the kitchen never hears anything.
 - **`close_session`.** `open_tab` accumulates consumption and nothing settles it
   at close — the modality has no ending. The strategy doc's §15 question, who
   covers an unpaid balance on an open tab, is still unanswered as well as unbuilt.
@@ -248,6 +246,8 @@ anything — residue from an already-fixed bug looks identical to a live one.
 | The intent mints a fresh reference | yes, 2 tests | The reservation's reference really is threaded through |
 | Wompi event id drops the status | yes | `PENDING → APPROVED` would be swallowed as a retry |
 | Transition loses `and status = 'locked_for_payment'` | **no** | Redundant given the lock |
+| Dispatch claim drops its lease | yes, 5 duplicates in 25 races | The lease is what excludes concurrent workers |
+| Dispatch claim drops `skip locked` | yes, by one dedicated test | Liveness only — correctness is the lease |
 
 That last row is worth knowing rather than hiding. With the round locked, callers
 serialize and only the one settling the final share ever observes a complete
@@ -255,6 +255,78 @@ round — so the status guard never fires, and neither does the `on conflict` on
 `dispatches`. Both are kept as defence in depth against someone later weakening
 the lock, but they are not what makes dispatch exactly-once today, and the suite
 cannot tell you if they break.
+
+## The dispatch worker
+
+> **Known issue, not yet resolved.** `two workers racing 25 queues never deliver a
+> ticket twice` fails in roughly 4 of 10 full `npm test` runs. Run alone, the file
+> passes consistently; the failure needs rows left in `dispatches` by other test
+> files. The signature is a contradiction: an injected spy recorded 22 deliveries
+> actually sent, all successful and all to the right URL, while 50 rows showed
+> `delivered`. Something claims and records outside the instrumented path.
+>
+> Ruled out with evidence, so do not start there: a destructive global
+> `emptyQueue()` helper (removed, failure persists), overlapping tests (top-level
+> and awaited subtests both proven sequential), parallel test files (fails the same
+> in one process per file and with `--test-concurrency=1`), and the HTTP layer
+> (sent, ok, received and URLs all matched exactly).
+>
+> The worker itself is not implicated: both of its mutations are caught, and
+> `lock_round`'s documented mutation still fails five tests. But a suite that is
+> red 40% of the time teaches people to ignore red, so this is a blocker on
+> calling phase 4 done.
+
+```bash
+export DISPATCH_KDS_URL=http://localhost:8790/kds
+export DISPATCH_PRINT_URL=http://localhost:8790/print
+npm run worker
+```
+
+Rows land in `dispatches` when a round is released. This delivers them, and
+without it the ledger is correct, every invariant holds, and nobody cooks
+anything — which is where this repo sat until it existed.
+
+**Both URLs are required and a missing one is a startup crash.** Every released
+round enqueues a `kds` row and a `print` row; a channel with no destination
+leaves its rows pending forever, which is indistinguishable from a stuck
+delivery and destroys the one signal an outbox gives.
+
+The external call never happens inside a transaction. The claim commits first,
+the POST goes out with no locks held, and a second transaction records what
+happened. Holding a row lock across a socket to a device in a kitchen is how a
+hung display becomes a stuck queue — and the worker never takes `lock_round`,
+because the same mistake there would put an HTTP call behind the only
+mutual-exclusion mechanism in the system and turn a slow display into a payment
+outage.
+
+**Two mechanisms, doing two different jobs.** `for update skip locked` stops two
+workers blocking on each other during the claim. What actually excludes them
+across a delivery is a **lease**: the claim pushes `next_attempt_at` into the
+future, taking the row out of the due predicate for longer than an attempt can
+last. The row lock alone protects microseconds while a delivery takes hundreds
+of milliseconds — measured, before the lease existed, as two workers delivering
+two rows five times.
+
+A killed worker strands nothing: the lease expires on its own and the row is due
+again. Nothing has to run on time for that, which is the same reasoning the
+reservation TTL uses.
+
+**Delivery is at-least-once and the spec says so.** No protocol makes an external
+call and a local write atomic, so a worker that delivers and dies before
+recording will deliver again. `unique (round_id, channel)` — echoed in the
+`x-dispatch-round` and `x-dispatch-channel` headers — is what lets the receiver
+collapse a repeat into one order. Whatever renders these tickets has to be built
+against that, not against a promise of exactly-once.
+
+After a bounded number of failures a row becomes `failed` and its **session** is
+flagged `requires_staff_attention`. Not the round: `rounds_dispatched_at_matches_status`
+ties `paid_and_dispatched` to `dispatched_at`, so moving the round would mean
+clearing that timestamp and claiming a round was never released when it was paid
+and released. The delivery failed, not the round.
+
+The ticket carries no money. `verify:schema` walks the payload and fails on any
+key matching an amount, balance, share or reference — asserting on the shape
+rather than a field list, so it still fires if someone adds one later.
 
 ## The invariants
 

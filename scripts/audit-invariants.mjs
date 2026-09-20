@@ -76,6 +76,29 @@ const CHECKS = [
              and (select count(*) from dispatches d where d.round_id = r.id) <> 2`,
   },
   {
+    // A worker that is not running is otherwise invisible: rows pile up at
+    // `pending`, every other invariant stays green, and food that was paid for
+    // is not being cooked. That was this repo's actual state until the worker
+    // existed — every dispatch ever recorded sat here undelivered while the
+    // suite reported nothing wrong.
+    //
+    // The threshold is generous on purpose. Retry backoff caps at a minute and
+    // the attempt ceiling is reached in a few, so anything still pending after
+    // fifteen means nobody is draining the queue.
+    //
+    // Note what is deliberately NOT audited: a dispatch in `failed`. That is a
+    // correctly recorded incident, not a violated invariant — it legitimately
+    // can be true, and an invariant is something that must never be. Auditing it
+    // would mean the audit could never be green again in a venue that has ever
+    // had a kitchen display fail, which destroys its value as a binary signal.
+    // Terminal failure reaches a human through the session flag instead.
+    name: 'I2   no dispatch left undelivered long past its backoff',
+    stamp: 'd.created_at',
+    sql: `select d.id from dispatches d
+           where d.status = 'pending' AND_SINCE
+             and d.next_attempt_at < now() - interval '15 minutes'`,
+  },
+  {
     name: 'I3   every contribution names a real webhook event',
     stamp: 'c.created_at',
     sql: `select c.id from contributions c
