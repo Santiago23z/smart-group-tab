@@ -29,7 +29,7 @@ construction. That is the whole design.
 Phase 3.5 was not in the original plan. It got added because the money half was
 finished and verified while the ordering half did not exist at all: there were
 exactly two write RPCs in the whole system, and no legitimate way for a round to
-reach `pending_payment` — the ledger tests fabricated it as superuser. Two decided
+reach `locked_for_payment` — the ledger tests fabricated it as superuser. Two decided
 rules (D11 overflow, D18 voids) had no implementation, and `requires_prepayment()`
 was written but called by nothing.
 
@@ -206,7 +206,7 @@ anything — residue from an already-fixed bug looks identical to a live one.
 | `verifySignature` always returns true | yes, 6 tests | Forged payloads really are refused |
 | The intent mints a fresh reference | yes, 2 tests | The reservation's reference really is threaded through |
 | Wompi event id drops the status | yes | `PENDING → APPROVED` would be swallowed as a retry |
-| Transition loses `and status = 'pending_payment'` | **no** | Redundant given the lock |
+| Transition loses `and status = 'locked_for_payment'` | **no** | Redundant given the lock |
 
 That last row is worth knowing rather than hiding. With the round locked, callers
 serialize and only the one settling the final share ever observes a complete

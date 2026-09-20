@@ -105,7 +105,7 @@ for (const btn of document.querySelectorAll('.tabs button')) {
 const nameOf = (id) => state?.participants.find((p) => p.id === id)?.nickname ?? '—'
 const currentRound = () =>
   state?.rounds.find((r) => r.status === 'draft') ??
-  state?.rounds.find((r) => r.status === 'pending_payment') ??
+  state?.rounds.find((r) => r.status === 'locked_for_payment') ??
   state?.rounds.at(-1) ?? null
 
 function render() {
@@ -203,7 +203,7 @@ function renderOwed(round) {
         </span>
       </div>`).join('')}
     <div class="line total"><span>Total</span><span>${money(round.total)}</span></div>
-    ${round.status === 'pending_payment'
+    ${round.status === 'locked_for_payment'
       ? `<div class="line"><span class="muted">Sin cubrir</span><span class="muted">${money(round.outstanding)}</span></div>`
       : ''}`
 }
@@ -219,7 +219,7 @@ function renderRoundActions(round) {
     return
   }
 
-  if (round.status === 'pending_payment') {
+  if (round.status === 'locked_for_payment') {
     el.innerHTML = `
       <div class="banner">
         <strong>En cobro</strong>
@@ -268,7 +268,7 @@ function renderBar(round) {
     return
   }
 
-  if (round?.status !== 'pending_payment' || Number(round.outstanding) === 0) {
+  if (round?.status !== 'locked_for_payment' || Number(round.outstanding) === 0) {
     bar.hidden = true
     return
   }

@@ -26,7 +26,7 @@ export function makePool(max = 32) {
  *   owner is an index into the created participants, or null for an unowned
  *   share that anyone may claim.
  */
-export async function createFixture(pool, { participants = 3, items = [], status = 'pending_payment' } = {}) {
+export async function createFixture(pool, { participants = 3, items = [], status = 'locked_for_payment' } = {}) {
   const db = await pool.connect()
   try {
     await db.query('begin')

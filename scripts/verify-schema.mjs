@@ -346,13 +346,13 @@ await check('a round dispatches to each channel at most once', async () => {
 
 await check('refunds cannot exceed what was paid', async () => {
   await rejects(
-    `insert into refunds (contribution_id, amount, reason)
-     values ('00000000-0000-4000-8000-000000000080', 5000, 'over the ceiling')`,
+    `insert into refunds (contribution_id, amount, reason, kind)
+     values ('00000000-0000-4000-8000-000000000080', 5000, 'over the ceiling', 'refunded')`,
     'exceeding'
   )
   await db.exec(`
-    insert into refunds (contribution_id, amount, reason)
-    values ('00000000-0000-4000-8000-000000000080', 1000, 'mesero cobró en caja')`)
+    insert into refunds (contribution_id, amount, reason, kind)
+    values ('00000000-0000-4000-8000-000000000080', 1000, 'mesero cobró en caja', 'reversed')`)
 })
 
 await check('tip does not count toward settlement', async () => {

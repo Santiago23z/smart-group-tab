@@ -1,7 +1,7 @@
 // Smart Group Tab — the ordering half.
 //
 // Everything here produces the rounds that the ledger consumes. Until these
-// existed there was no legitimate way to reach pending_payment at all; the money
+// existed there was no legitimate way to reach locked_for_payment at all; the money
 // tests fabricated it as superuser.
 //
 // Two decided rules land here and nowhere else:
@@ -345,7 +345,7 @@ describe('closing the round', () => {
     assert.equal(result.status, 'collecting')
 
     const state = await roundState(pool, session.round_id)
-    assert.equal(state.status, 'pending_payment')
+    assert.equal(state.status, 'locked_for_payment')
   })
 
   test('an equal split leaves everyone owing the same, to the peso', async () => {
@@ -407,7 +407,7 @@ describe('closing the round', () => {
     await closeRound(pool, { sessionId: session.session_id })
 
     const state = await roundState(pool, session.round_id)
-    assert.equal(state.status, 'pending_payment')
+    assert.equal(state.status, 'locked_for_payment')
     assert.equal(state.dispatchRows, 0)
   })
 })

@@ -172,7 +172,7 @@ describe('the endpoint, end to end', () => {
 
     assert.equal(response.httpStatus, 401)
     const state = await roundState(pool, diner.round_id)
-    assert.equal(state.status, 'pending_payment', 'an unsigned POST must not buy dinner')
+    assert.equal(state.status, 'locked_for_payment', 'an unsigned POST must not buy dinner')
     assert.equal(state.contributions, 0)
     assert.equal(state.dispatchRows, 0)
   })
@@ -214,7 +214,7 @@ describe('the endpoint, end to end', () => {
 
     assert.equal(response.result.status, 'released')
     const state = await roundState(pool, diner.round_id)
-    assert.equal(state.status, 'pending_payment')
+    assert.equal(state.status, 'locked_for_payment')
   })
 
   test('a pending transaction changes nothing', async () => {

@@ -130,7 +130,7 @@ describe('I2 — dispatch exactly once', () => {
       // Counting dispatch rows is not enough: `on conflict do nothing` on the
       // outbox swallows a second insert, so the row count stays at 2 even when
       // the transition fired repeatedly. Mutation testing proved it — removing
-      // the `and status = 'pending_payment'` guard left the whole suite green.
+      // the `and status = 'locked_for_payment'` guard left the whole suite green.
       // This counts how many callers actually won the transition, which is the
       // thing the guard exists to make exactly one.
       const claimedDispatch = results.filter((r) => r.dispatched === true).length
@@ -168,7 +168,7 @@ describe('I2 — dispatch exactly once', () => {
     })
 
     const state = await roundState(pool, f.roundId)
-    assert.equal(state.status, 'pending_payment')
+    assert.equal(state.status, 'locked_for_payment')
     assert.equal(state.dispatchRows, 0, 'two thirds unpaid must not reach the kitchen')
   })
 
@@ -193,7 +193,7 @@ describe('I2 — dispatch exactly once', () => {
     })
 
     const state = await roundState(pool, f.roundId)
-    assert.equal(state.status, 'pending_payment', 'a large tip must not buy the food')
+    assert.equal(state.status, 'locked_for_payment', 'a large tip must not buy the food')
     assert.equal(state.dispatchRows, 0)
     assert.equal(state.settledAmount, 25000, 'only the order half counts')
   })
@@ -289,7 +289,7 @@ describe('I3 — no approved webhook is ever lost', () => {
     assert.equal(state.status, 'paid_and_dispatched', 'a dispatched round is never un-dispatched')
     assert.equal(
       state.sessionStatus,
-      'needs_staff_attention',
+      'requires_staff_attention',
       'but a human still has to resolve the overpayment'
     )
   })
@@ -307,7 +307,7 @@ describe('I3 — no approved webhook is ever lost', () => {
 
     const state = await roundState(pool, f.roundId)
     assert.equal(state.creditedAmount, f.reservation.order_amount + 7000)
-    assert.equal(state.status, 'needs_staff_attention')
+    assert.equal(state.status, 'requires_staff_attention')
     assert.equal(state.dispatchRows, 0, 'a disagreement with the PSP must not fire the kitchen')
   })
 

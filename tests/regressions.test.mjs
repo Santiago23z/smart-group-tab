@@ -96,7 +96,7 @@ describe('splitting a share that an unsettled hold still claims', () => {
     )
     assert.equal(state.creditedAmount, 100, "A's money is real, so it becomes table credit")
     assert.equal(state.prepaidBalance, 100)
-    assert.equal(state.sessionStatus, 'needs_staff_attention', 'and a human is told')
+    assert.equal(state.sessionStatus, 'requires_staff_attention', 'and a human is told')
   })
 
   test('a lapsed hold that never settles leaves the split intact', async () => {
@@ -242,7 +242,7 @@ describe('I3, the paths that leaked', () => {
     assert.equal(state.contributions, 2)
     assert.equal(state.creditedAmount, 1000)
     assert.equal(state.prepaidBalance, 1000)
-    assert.equal(state.sessionStatus, 'needs_staff_attention')
+    assert.equal(state.sessionStatus, 'requires_staff_attention')
   })
 
   test('an unplaceable approved payment stays on the follow-up queue', async () => {
