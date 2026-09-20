@@ -16,11 +16,16 @@
     "wompi": "node src/wompi/server.mjs",
     "audit": "node scripts/audit-invariants.mjs",
     "demo": "node scripts/demo.mjs",
-    "web": "node src/api/server.mjs"
+    "web": "node src/api/server.mjs",
+    "test:e2e": "playwright test",
+    "test:all": "npm run verify:schema && npm test && npm run test:e2e && npm run audit"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "pg": "^8.23.0",
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }

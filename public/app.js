@@ -17,7 +17,14 @@ const api = async (path, body) => {
     headers: body ? { 'content-type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail ?? res.statusText)
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}))
+    const err = new Error(payload.detail ?? payload.error ?? res.statusText)
+    // Callers need to tell "the network dropped" from "the server says no".
+    err.status = res.status
+    err.code = payload.error
+    throw err
+  }
   return res.json()
 }
 
@@ -439,13 +446,33 @@ async function confirmPayment() {
 // ---------------------------------------------------------------------------
 // Polling, and reconciling whenever the phone comes back
 // ---------------------------------------------------------------------------
+/**
+ * The table we remember is gone — closed, or rebuilt underneath us. Nothing on
+ * screen can be trusted and none of it is actionable, so hand the diner back the
+ * only thing that works: the door.
+ */
+function forget(message) {
+  localStorage.removeItem(storeKey)
+  me = null
+  state = null
+  $('join-error').textContent = message
+  $('join-error').hidden = false
+  show('join')
+}
+
 async function refresh() {
   if (!me) return
   try {
     state = await api(`/api/state?session_id=${me.sessionId}&participant_id=${me.participantId}`)
     render()
-  } catch {
-    // A dropped request is normal in a bar. The next tick reconciles.
+  } catch (err) {
+    // A dropped request is normal in a bar, and the next tick reconciles it.
+    // A session the server does not have never reconciles: polling it forever
+    // leaves the diner on an empty table screen with no menu and no way out.
+    // Same catch, two different failures — only one of them is survivable.
+    if (err.code === 'unknown_session') {
+      forget('Esa mesa ya no está abierta. Volvé a entrar.')
+    }
   }
 }
 

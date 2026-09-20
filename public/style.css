@@ -18,6 +18,15 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* The whole UI is driven by toggling the `hidden` attribute from app.js, and
+   `hidden` only hides anything because of the browser's own `[hidden]{display:none}`.
+   An author `display` declaration beats that rule — author origin wins over
+   user-agent origin regardless of specificity — so `.sheet{display:flex}`,
+   `footer{display:flex}` and `#join{display:grid}` each silently defeated it and
+   left their element permanently on screen. `!important` is load-bearing here:
+   without it `#join`'s ID selector still outranks this one. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
