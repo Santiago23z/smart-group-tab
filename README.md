@@ -23,6 +23,8 @@ construction. That is the whole design.
 | 3.6 | Wompi adapter — signature, units, endpoint | **verified** |
 | — | Code review: 8 defects found, 8 fixed | **9 invariants audited** |
 | 3.7 | Payment creation — Web Checkout, signed, reference-threaded | **verified** (88/88 total) |
+| 3.8 | Diner PWA — shared cart, fractional payment, on a phone | **verified in a browser** (12 specs) |
+| — | State names aligned with CLAUDE.md; first three specs seeded | **147 checks total** |
 | 4 | Dispatch outbox and worker | not started |
 | 5 | KDS web (orders + staff alerts) | not started |
 
@@ -42,7 +44,8 @@ Still missing before a table can actually eat:
   covers an unpaid balance on an open tab, is still unanswered as well as unbuilt.
 - **Staff actions** (D2, D17): force dispatch, release reservations, cancel round,
   record refund. Decided six phases ago, still absent.
-- **The diner's PWA.** Every RPC it needs exists; nothing calls them.
+- **A staff surface of any kind.** The diner's PWA is built and browser-tested;
+  nothing on the other side of the counter exists at all.
 
 ## The Wompi bridge
 
@@ -157,6 +160,44 @@ Those need a real server:
 ```bash
 export DATABASE_URL='postgres://<you>@localhost:5432/smart_group_tab'
 npm test
+```
+
+### Neither of those renders anything
+
+Both prove the ledger is correct. Neither proves a diner can reach it, and that
+gap is not theoretical: two bugs shipped in the first commit and stayed green
+through every run of both suites.
+
+The first was one CSS rule. The whole screen is driven by toggling the `hidden`
+attribute, which hides anything only because of the browser's own
+`[hidden]{display:none}` — and an author `display` declaration beats that,
+because author origin outranks user-agent origin whatever the specificity.
+`.sheet{display:flex}` therefore left the payment sheet permanently on top of
+everything, so the app opened asking for a tip and swallowed every tap
+underneath. The second: `refresh()` caught every error alike, which is right for
+a dropped request in a loud bar but wrong for a session the server no longer has
+— that one never reconciles, and the phone sat on an empty table screen with no
+menu and no way back to the QR.
+
+```bash
+npx playwright install webkit   # once
+npm run test:e2e
+```
+
+Twelve specs driving real WebKit at an iPhone viewport with real touch events,
+against the real server against the real database: the screen opening clean, two
+phones sharing one cart, splitting an item 17.280/17.280 with no drift, the cart
+freezing on close, overflow into a new round, payment firing the kitchen exactly
+once, a 50.000 tip failing to buy a 34.560 round while one share is unpaid, and
+recovery from a session that no longer exists.
+
+Each spec creates its **own table**. That is not tidiness: `sessions_one_live_per_table`
+allows one live session per table, so two specs sharing one would be racing each
+other for a tab rather than testing anything. Those rows accumulate until the
+next `npm run db:reset`.
+
+```bash
+npm run test:all    # all 147: 38 schema + 88 node + 12 browser + 9 audit
 ```
 
 ### Why the races repeat 25 times
