@@ -20,6 +20,8 @@ import { networkInterfaces } from 'node:os'
 import pg from 'pg'
 import QRCode from 'qrcode'
 import { createPaymentIntent } from '../wompi/intent.mjs'
+import { createWompiApi, WompiApiError } from '../wompi/api.mjs'
+import { reconcileTransaction } from '../wompi/reconcile.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const publicDir = join(root, 'public')
@@ -43,6 +45,30 @@ const checkoutConfig = {
 }
 
 const pool = new pg.Pool({ connectionString, max: 12 })
+
+// Lets the page check a payment the moment the diner is back from Wompi, instead
+// of waiting for the webhook. Without the private key the page just waits.
+const wompiApi = process.env.WOMPI_PRIVATE_KEY
+  ? createWompiApi({
+      privateKey: process.env.WOMPI_PRIVATE_KEY,
+      baseUrl: process.env.WOMPI_API_URL ?? 'https://sandbox.wompi.co/v1',
+    })
+  : null
+
+const OUTCOME_BY_STATUS = {
+  APPROVED: 'approved', DECLINED: 'declined', VOIDED: 'declined', ERROR: 'declined', PENDING: 'pending',
+}
+
+/**
+ * Where Wompi sends the diner back to. WOMPI_REDIRECT_URL wins when set (a
+ * tunnel's https address, say); otherwise the address the phone used to reach
+ * us, which is by definition one it can reach.
+ */
+function returnOrigin(req) {
+  if (checkoutConfig.redirectUrl) return new URL(checkoutConfig.redirectUrl).origin
+  const proto = req.headers['x-forwarded-proto']?.split(',')[0].trim() || 'http'
+  return `${proto}://${req.headers.host}`
+}
 
 /**
  * Runs a statement with the caller's participant id in scope, so SECURITY
@@ -181,7 +207,7 @@ const ROUTES = {
       ])
     ),
 
-  'POST /api/payments/intent': async (body) => {
+  'POST /api/payments/intent': async (body, req) => {
     if (!checkoutConfig.publicKey || !checkoutConfig.integritySecret) {
       return {
         status: 'rejected',
@@ -192,7 +218,30 @@ const ROUTES = {
     return createPaymentIntent(pool, {
       reservationId: body.reservation_id,
       config: checkoutConfig,
+      returnOrigin: returnOrigin(req),
     })
+  },
+
+  // The device names a transaction id and nothing else. Status, amount and
+  // reference come from our own authenticated call to Wompi, so a forged return
+  // can at worst make us ask Wompi about a transaction that does not exist.
+  'POST /api/payments/reconcile': async (body) => {
+    if (!wompiApi) return { outcome: 'disabled' }
+    if (typeof body.transaction_id !== 'string' || body.transaction_id === '') return { outcome: 'not_found' }
+
+    let transaction
+    try {
+      transaction = await wompiApi.getTransaction(body.transaction_id)
+    } catch (err) {
+      if (!(err instanceof WompiApiError)) throw err
+      console.error('[api] could not reach Wompi:', err.message)
+      return { outcome: 'unavailable' }
+    }
+    if (!transaction) return { outcome: 'not_found' }
+
+    const result = await reconcileTransaction(pool, transaction)
+    if (result.status === 'unknown_reference') return { outcome: 'not_found' }
+    return { outcome: OUTCOME_BY_STATUS[transaction.status], status: result.status }
   },
 
   // Stands in for Wompi while you have no keys. Goes through the real
@@ -253,7 +302,7 @@ const server = createServer(async (req, res) => {
 
     const route = ROUTES[`${req.method} ${url.pathname}`]
     if (route) {
-      return reply(200, await route(await readBody(req)))
+      return reply(200, await route(await readBody(req), req))
     }
 
     // Static. `/t/<qr-token>` is what the QR encodes; the page reads the token
@@ -304,6 +353,11 @@ server.listen(port, '0.0.0.0', async () => {
       : allowSimulatedPayments
         ? '  Pagos simulados activos: el botón de pagar pasa por confirm_webhook real.\n'
         : '  Pagos simulados desactivados.\n')
+  if (checkoutConfig.publicKey && checkoutConfig.integritySecret) {
+    console.log(wompiApi
+      ? '  Conciliación activa: al volver de Wompi se revisa el pago al instante.\n'
+      : '  Conciliación desactivada: falta WOMPI_PRIVATE_KEY (solo webhooks).\n')
+  }
 })
 
 const shutdown = async () => {

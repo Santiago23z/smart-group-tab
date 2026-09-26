@@ -384,3 +384,30 @@ test('reloading keeps you at the table without asking again', async ({ page }) =
   await openCart(page)
   await expect(page.locator('#cart-list')).toContainText('Ceviche de camarón')
 })
+
+// Back from Wompi, the page checks the transaction at once instead of waiting
+// for a webhook that may never come. The server's answer is faked here: what is
+// under test is that the page asks, says the right thing, and cleans its URL.
+for (const [outcome, status, text] of [
+  ['approved', 'settled', 'Pago aprobado'],
+  ['approved', 'credited', 'saldo a favor'],
+  ['declined', 'released', 'rechazado'],
+  ['pending', undefined, 'procesando'],
+]) {
+  test(`back from Wompi with a ${outcome} (${status}) payment, the page says so`, async ({ page }) => {
+    const asked = []
+    await page.route('**/api/payments/reconcile', async (route) => {
+      asked.push(route.request().postDataJSON())
+      return route.fulfill({ json: { outcome, status } })
+    })
+
+    const qr = await freshTable(`return-${outcome}-${status}`)
+    await joinAs(page, qr, 'Ana')
+    await page.goto(`/t/${qr}?id=tx-from-wompi`)
+
+    await expect(page.locator('#toast')).toContainText(text)
+    expect(asked).toEqual([{ transaction_id: 'tx-from-wompi' }])
+    // A reload must not ask again, so the id leaves the address bar.
+    expect(new URL(page.url()).search).toBe('')
+  })
+}

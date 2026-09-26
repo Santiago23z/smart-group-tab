@@ -98,6 +98,23 @@ rotation problem that does not exist.
 A missing `WOMPI_EVENTS_SECRET` is a startup crash, not a warning. An endpoint
 without a secret accepts forged payments.
 
+**When the webhook never comes.** I3 used to hold only if Wompi's webhook arrived
+at least once. With `WOMPI_PRIVATE_KEY` set, the server also asks Wompi directly:
+
+- *on return* — Wompi sends the diner back to `/t/<table>?id=<transaction>`, and
+  the page asks `POST /api/payments/reconcile` to check that id at once;
+- *periodically* — `npm run wompi` checks every reservation whose checkout was
+  issued in the last 24 hours and has no outcome yet, by reference, every
+  `WOMPI_RECONCILE_SECONDS`.
+
+Both feed the same parser and the same `confirm_webhook` as the webhook, so a
+lookup and a webhook for one transaction share an event id and the second is a
+`duplicate_event`. The device only ever names a transaction id; status, amount
+and reference come from our own authenticated call. Wompi's answer carries the
+diner's email, phone and national id — only the fields settlement needs are
+stored. Lookup by id is in Wompi's docs; lookup by reference is not, and was
+verified against the sandbox.
+
 ## Trying it on a phone
 
 ```bash

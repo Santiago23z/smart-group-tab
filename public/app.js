@@ -488,6 +488,47 @@ async function refresh() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Back from Wompi
+// ---------------------------------------------------------------------------
+const RETURN_MESSAGES = {
+  approved: ['Pago aprobado. Tu parte quedó pagada.', false],
+  declined: ['El pago fue rechazado. Podés intentar de nuevo.', true],
+  pending: ['Tu pago se está procesando. Te avisamos apenas se confirme.', false],
+  not_found: ['No encontramos ese pago en Wompi.', true],
+}
+const WAITING = ['Esperando la confirmación de Wompi…', false]
+
+/**
+ * Wompi sends the diner back to this page with `?id=<transaction>`. Asking the
+ * server to check it now means a lost or late webhook no longer leaves the
+ * diner staring at an unpaid table — or being offered a payment Wompi will
+ * refuse as already used.
+ */
+async function checkReturnFromWompi() {
+  const params = new URLSearchParams(location.search)
+  const transactionId = params.get('id')
+  if (!transactionId) return
+
+  // Out of the address bar first: a reload must not ask again.
+  params.delete('id')
+  history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}${location.hash}`)
+
+  let message = WAITING
+  try {
+    const result = await api('/api/payments/reconcile', { transaction_id: transactionId })
+    // Approved but unplaceable (a lapsed hold whose shares someone else paid):
+    // the money is safe as table credit, but nothing is going to the kitchen.
+    message = result.status === 'credited'
+      ? ['Pago recibido. Quedó como saldo a favor de la mesa; un mesero te va a ayudar.', true]
+      : RETURN_MESSAGES[result.outcome] ?? WAITING
+  } catch {
+    // The webhook and the periodic check still stand behind this.
+  }
+  await refresh()
+  toast(...message)
+}
+
 setInterval(refresh, 2000)
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && refresh())
 
@@ -499,3 +540,5 @@ if (me) {
   $('join-venue').textContent = 'Escaneaste la mesa'
   show('join')
 }
+
+checkReturnFromWompi()

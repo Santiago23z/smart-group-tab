@@ -287,3 +287,83 @@ describe('creating an intent from a live reservation', () => {
     assert.equal(state.dispatchRows, 2)
   })
 })
+
+describe('remembering the checkout, and bringing the diner back', () => {
+  async function heldShare() {
+    const venue = await createVenue(pool, { products: [{ price: 20000, taxRate: 0 }] })
+    const diner = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Santi' })
+    await addItem(pool, { sessionId: diner.session_id, participantId: diner.participant_id, productId: venue.menu[0].id })
+    await closeRound(pool, { sessionId: diner.session_id })
+    const claim = await reserve(pool, {
+      roundId: diner.round_id, participantId: diner.participant_id, mode: 'remaining', key: `ret-${Math.random()}`,
+    })
+    return { venue, claim }
+  }
+
+  const checkoutRow = async (reservationId) =>
+    (await pool.query(`select * from reservation_checkouts where reservation_id = $1`, [reservationId])).rows[0]
+
+  test('an issued checkout is recorded once; re-issuing keeps the first time', async () => {
+    const { claim } = await heldShare()
+    await createPaymentIntent(pool, { reservationId: claim.reservation_id, config: CONFIG })
+    const first = await checkoutRow(claim.reservation_id)
+    assert.ok(first, 'the periodic check only looks at reservations that reached Wompi')
+
+    await createPaymentIntent(pool, { reservationId: claim.reservation_id, config: CONFIG })
+    const again = await checkoutRow(claim.reservation_id)
+    assert.equal(again.first_issued_at.getTime(), first.first_issued_at.getTime())
+    assert.ok(again.last_issued_at >= first.last_issued_at)
+  })
+
+  test('a refused intent records nothing', async () => {
+    const { claim } = await heldShare()
+    await pool.query(`update contribution_reservations set expires_at = now() - interval '1 min' where id = $1`,
+      [claim.reservation_id])
+    const intent = await createPaymentIntent(pool, { reservationId: claim.reservation_id, config: CONFIG })
+    assert.equal(intent.status, 'rejected')
+    assert.equal(await checkoutRow(claim.reservation_id), undefined)
+  })
+
+  test('the diner comes back to their own table page', async () => {
+    const { venue, claim } = await heldShare()
+    const intent = await createPaymentIntent(pool, {
+      reservationId: claim.reservation_id, config: CONFIG, returnOrigin: 'https://tab.example.com',
+    })
+    assert.equal(
+      new URL(intent.checkout_url).searchParams.get('redirect-url'),
+      `https://tab.example.com/t/${encodeURIComponent(venue.qrToken)}`
+    )
+  })
+
+  // Wompi's firewall answers 403 to the whole checkout when redirect-url names an
+  // IP address or localhost (checked 2026-09-26: 192.168.x, 8.8.8.8, localhost
+  // all 403; example.com and mi-mac.local 200). Better no way back — the
+  // periodic check still finds the payment — than no way to pay at all.
+  for (const origin of ['http://192.168.1.132:8788', 'https://8.8.8.8', 'http://localhost:8788', 'http://[::1]:8788']) {
+    test(`a return address Wompi would block (${origin}) is left out`, async () => {
+      const { claim } = await heldShare()
+      const intent = await createPaymentIntent(pool, {
+        reservationId: claim.reservation_id, config: { ...CONFIG, redirectUrl: null }, returnOrigin: origin,
+      })
+      assert.equal(intent.status, 'created')
+      assert.equal(new URL(intent.checkout_url).searchParams.get('redirect-url'), null)
+    })
+  }
+
+  test('a named host on the local network is kept', async () => {
+    const { venue, claim } = await heldShare()
+    const intent = await createPaymentIntent(pool, {
+      reservationId: claim.reservation_id, config: CONFIG, returnOrigin: 'http://mi-mac.local:8788',
+    })
+    assert.equal(
+      new URL(intent.checkout_url).searchParams.get('redirect-url'),
+      `http://mi-mac.local:8788/t/${encodeURIComponent(venue.qrToken)}`
+    )
+  })
+
+  test('without a return origin the configured redirect is used as before', async () => {
+    const { claim } = await heldShare()
+    const intent = await createPaymentIntent(pool, { reservationId: claim.reservation_id, config: CONFIG })
+    assert.equal(new URL(intent.checkout_url).searchParams.get('redirect-url'), CONFIG.redirectUrl)
+  })
+})

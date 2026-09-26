@@ -8,13 +8,24 @@
 import { buildCheckoutUrl } from './checkout.mjs'
 
 /**
+ * Wompi's firewall refuses the whole checkout (403, before any of their pages
+ * loads) when redirect-url names an IP address or localhost — a phone that
+ * reached us by LAN IP could not pay at all. Such an origin gets no way back
+ * instead; the periodic check still finds the payment.
+ */
+function wompiAcceptsReturnTo(origin) {
+  const host = new URL(origin).hostname
+  return host !== 'localhost' && !host.startsWith('[') && !/^\d{1,3}(\.\d{1,3}){3}$/.test(host)
+}
+
+/**
  * Reads the reservation and returns a checkout link for exactly what it holds.
  *
  * Returns { status } rather than throwing on a refused intent, matching the
  * reservation RPCs: a lapsed hold is an ordinary outcome the UI has to render,
  * not an error.
  */
-export async function createPaymentIntent(pool, { reservationId, config }) {
+export async function createPaymentIntent(pool, { reservationId, config, returnOrigin = null }) {
   const { rows } = await pool.query(
     `select r.id,
             r.psp_reference,
@@ -23,11 +34,13 @@ export async function createPaymentIntent(pool, { reservationId, config }) {
             r.status::text as status,
             r.expires_at,
             r.expires_at > now() as still_live,
-            s.currency
+            s.currency,
+            t.qr_token
        from contribution_reservations r
        join rounds rd on rd.id = r.round_id
        join sessions se on se.id = rd.session_id
        join venues s on s.id = se.venue_id
+       join tables t on t.id = se.table_id
       where r.id = $1`,
     [reservationId]
   )
@@ -64,7 +77,20 @@ export async function createPaymentIntent(pool, { reservationId, config }) {
     currency: reservation.currency,
     expiresAt: reservation.expires_at,
     ...config,
+    // Back to the diner's own table page, where the transaction id Wompi appends
+    // is checked at once. Built from the reservation, never from anything the
+    // device sent.
+    redirectUrl: returnOrigin
+      ? wompiAcceptsReturnTo(returnOrigin)
+        ? `${returnOrigin}/t/${encodeURIComponent(reservation.qr_token)}`
+        : null
+      : config.redirectUrl,
   })
+
+  // Only reservations that reached Wompi are ever looked up later, so this is
+  // recorded before the link is handed out: a checkout we forgot about is a
+  // payment the periodic check would never find.
+  await pool.query(`select record_checkout_issued($1)`, [reservation.id])
 
   return {
     status: 'created',

@@ -13,6 +13,8 @@ import { createServer } from 'node:http'
 import pg from 'pg'
 import { handleWompiWebhook } from './handler.mjs'
 import { createPaymentIntent } from './intent.mjs'
+import { createWompiApi } from './api.mjs'
+import { reconcileDue } from './reconcile.mjs'
 
 const port = Number(process.env.PORT ?? 8787)
 const secret = process.env.WOMPI_EVENTS_SECRET
@@ -42,6 +44,26 @@ if (!connectionString) {
 }
 
 const pool = new pg.Pool({ connectionString, max: 8 })
+
+// Optional on purpose: without the private key, payments still arrive by
+// webhook exactly as before; we just cannot go and look for the ones that don't.
+const privateKey = process.env.WOMPI_PRIVATE_KEY
+const reconcileSeconds = Number(process.env.WOMPI_RECONCILE_SECONDS ?? 60)
+const wompiApi = privateKey
+  ? createWompiApi({ privateKey, baseUrl: process.env.WOMPI_API_URL ?? 'https://sandbox.wompi.co/v1' })
+  : null
+let reconcileTimer = null
+
+async function reconcileLoop() {
+  try {
+    await reconcileDue(pool, { api: wompiApi, intervalSeconds: reconcileSeconds, log: console.log })
+  } catch (err) {
+    // The database, most likely. Rows stay due, so the next pass picks them up.
+    console.error('[reconcile] pass failed:', err.message)
+  } finally {
+    reconcileTimer = setTimeout(reconcileLoop, reconcileSeconds * 1000)
+  }
+}
 
 async function readBody(req, limitBytes = 1_000_000) {
   const chunks = []
@@ -102,9 +124,16 @@ server.listen(port, () => {
   console.log(`Wompi bridge listening on http://localhost:${port}`)
   console.log(`  POST /payments/intent   build a checkout for a live reservation`)
   console.log(`  POST /webhooks/wompi    settle what Wompi sends back`)
+  if (wompiApi) {
+    console.log(`  Reconciliation on: asking Wompi every ${reconcileSeconds}s about unsettled checkouts`)
+    reconcileLoop()
+  } else {
+    console.log('  Reconciliation disabled: WOMPI_PRIVATE_KEY is not set (webhooks only)')
+  }
 })
 
 const shutdown = async () => {
+  clearTimeout(reconcileTimer)
   server.close()
   await pool.end()
   process.exit(0)
