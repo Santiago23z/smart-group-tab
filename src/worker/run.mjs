@@ -23,6 +23,7 @@ export const DELIVERY_TIMEOUT_MS = 10_000
  */
 export async function drain(client, {
   urls,
+  token,
   config = DEFAULTS,
   deliverImpl = deliver,
   hooks = {},
@@ -47,7 +48,7 @@ export async function drain(client, {
 
     let result
     try {
-      result = await deliverImpl(url, row.ticket, { channel: row.channel, timeoutMs })
+      result = await deliverImpl(url, row.ticket, { channel: row.channel, token, timeoutMs })
     } catch (err) {
       // deliver() is written not to throw; if something upstream of it does,
       // treat it as a failed attempt rather than losing the row.

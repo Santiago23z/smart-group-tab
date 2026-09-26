@@ -20,7 +20,7 @@ import { summarise } from './outcome.mjs'
  * that works — which is why the receiving end has to be designed deliberately
  * rather than assumed.
  */
-export async function deliver(url, ticket, { channel, timeoutMs = 10_000, fetchImpl = fetch } = {}) {
+export async function deliver(url, ticket, { channel, token, timeoutMs = 10_000, fetchImpl = fetch } = {}) {
   const control = new AbortController()
   // A kitchen device that accepts the connection and then says nothing would
   // otherwise hold this worker forever, and a hung socket is exactly how an
@@ -36,6 +36,10 @@ export async function deliver(url, ticket, { channel, timeoutMs = 10_000, fetchI
         // construction, so this is what lets a repeat show one order.
         'x-dispatch-round': String(ticket.round_id),
         'x-dispatch-channel': String(channel),
+        // Without it, anyone on the venue network could put unpaid food on the
+        // kitchen screen. A refusal comes back as a non-2xx and is retried like
+        // any other, never counted as delivered.
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(ticket),
       signal: control.signal,

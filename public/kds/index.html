@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14110f">
+<title>Cocina — Smart Group Tab</title>
+<link rel="stylesheet" href="/kds/kds.css">
+</head>
+<body>
+
+<!-- Sin token ---------------------------------------------------------- -->
+<section id="locked" hidden>
+  <h1>Pantalla de cocina</h1>
+  <p class="muted">Abrí esta pantalla con el enlace del personal
+    (<code>/kds#token=…</code>).</p>
+</section>
+
+<!-- Cocina ------------------------------------------------------------- -->
+<main id="kds" hidden>
+  <p id="stall" class="banner" hidden></p>
+  <p id="offline" class="banner" hidden>Sin conexión con el servidor. Reintentando…</p>
+
+  <div class="layout">
+    <section class="orders">
+      <header><h1>Pedidos</h1><span id="order-count" class="muted"></span></header>
+      <p id="no-orders" class="muted empty" hidden>No hay pedidos pendientes.</p>
+      <div id="tickets" class="tickets"></div>
+    </section>
+
+    <aside class="alerts">
+      <header><h2>Mesas que necesitan a alguien</h2></header>
+      <p id="no-alerts" class="muted empty" hidden>Todo en orden.</p>
+      <ul id="alert-list"></ul>
+    </aside>
+  </div>
+</main>
+
+<script type="module" src="/kds/kds.js"></script>
+</body>
+</html>

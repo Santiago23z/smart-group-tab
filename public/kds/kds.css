@@ -1,0 +1,119 @@
+/* Smart Group Tab — a kitchen screen: a landscape tablet on a wall, read from
+   two metres away by someone holding a pan. Big type, nothing subtle. */
+
+:root {
+  --bg: #14110f;
+  --surface: #1e1a17;
+  --surface-2: #2a2421;
+  --line: #3a322d;
+  --text: #f2ece6;
+  --muted: #a2968c;
+  --accent: #e8944a;
+  --accent-ink: #1a1105;
+  --ok: #6fbf73;
+  --warn: #e4c05a;
+  --err: #e2705f;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+/* Same trap as the diner's screen: an author `display` beats the browser's own
+   [hidden] rule, so this has to be !important for `hidden` to hide anything. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 18px/1.4 ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+h1 { font-size: 1.8rem; margin: 0; }
+h2 { font-size: 1.2rem; margin: 0; }
+.muted { color: var(--muted); }
+.empty { padding: 2rem 0; font-size: 1.2rem; }
+
+#locked { padding: 3rem; max-width: 40rem; }
+
+.banner {
+  margin: 0;
+  padding: .8rem 1.4rem;
+  font-weight: 700;
+  font-size: 1.15rem;
+  background: var(--err);
+  color: #1a0805;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 22rem;
+  min-height: 100vh;
+}
+
+.orders { padding: 1.2rem 1.4rem; }
+.orders > header, .alerts > header {
+  display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem;
+}
+
+.tickets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.ticket {
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+}
+.ticket.late { border-color: var(--warn); }
+.ticket.very-late { border-color: var(--err); }
+
+.ticket-head { display: flex; justify-content: space-between; align-items: baseline; }
+.ticket-table { font-size: 1.6rem; font-weight: 800; }
+.ticket-round { color: var(--muted); }
+.ticket-wait { font-variant-numeric: tabular-nums; font-weight: 700; }
+.late .ticket-wait { color: var(--warn); }
+.very-late .ticket-wait { color: var(--err); }
+
+.items { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+.items li { display: grid; grid-template-columns: 2.4rem 1fr; }
+.qty { font-weight: 800; color: var(--accent); }
+.who { display: block; color: var(--muted); font-size: .9rem; }
+
+button {
+  font: inherit;
+  font-weight: 700;
+  border: 0;
+  border-radius: 10px;
+  padding: .8rem 1rem;
+  cursor: pointer;
+  background: var(--ok);
+  color: #0b1a0c;
+}
+button.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+button:disabled { opacity: .5; cursor: default; }
+
+.alerts {
+  background: var(--surface);
+  border-left: 2px solid var(--line);
+  padding: 1.2rem;
+}
+#alert-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .8rem; }
+.alert {
+  border: 2px solid var(--err);
+  border-radius: var(--radius);
+  padding: .8rem;
+  display: grid;
+  gap: .5rem;
+}
+.alert.acked { border-color: var(--line); opacity: .75; }
+.alert-table { font-weight: 800; font-size: 1.3rem; }
+.alert ul { margin: 0; padding-left: 1.1rem; }
+.ack-note { color: var(--muted); font-size: .9rem; }

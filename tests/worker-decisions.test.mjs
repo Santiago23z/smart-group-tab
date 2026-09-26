@@ -124,8 +124,11 @@ test('delivery', async (t) => {
       })
     })
     try {
-      await deliver(s.url, TICKET, { channel: 'print' })
+      await deliver(s.url, TICKET, { channel: 'print', token: 's3cret' })
       assert.equal(seen.method, 'POST')
+      // The receiver's only proof that this ticket came from the worker, and
+      // not from anyone on the venue network wanting unpaid food cooked.
+      assert.equal(seen.headers.authorization, 'Bearer s3cret')
       assert.deepEqual(seen.body, TICKET)
       // Delivery is at-least-once by construction; this pair is what lets the
       // receiver collapse a repeat into one order.

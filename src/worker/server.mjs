@@ -6,7 +6,7 @@
 // and nobody cooks anything — which is exactly the state this repo was in
 // before it existed.
 //
-//   DATABASE_URL=... DISPATCH_KDS_URL=... DISPATCH_PRINT_URL=... node src/worker/server.mjs
+//   DATABASE_URL=... DISPATCH_KDS_URL=... DISPATCH_PRINT_URL=... DISPATCH_TOKEN=... node src/worker/server.mjs
 //
 // A shell, like src/wompi/server.mjs. Every decision lives in run.mjs,
 // claim.mjs, deliver.mjs, outcome.mjs and backoff.mjs, none of which know this
@@ -42,6 +42,15 @@ for (const [channel, url] of Object.entries(urls)) {
   }
 }
 
+// The receiver refuses tickets without it. Starting without one would fail every
+// delivery until the attempts ran out, flagging every table in the venue.
+const token = process.env.DISPATCH_TOKEN
+if (!token) {
+  console.error('DISPATCH_TOKEN is not set. Refusing to start: the kitchen display')
+  console.error('rejects unauthenticated tickets, so every delivery would fail.')
+  process.exit(1)
+}
+
 const pool = new pg.Pool({ connectionString, max: 2 })
 
 let stopping = false
@@ -60,7 +69,7 @@ console.log(`  Polling every ${intervalMs}ms. Ctrl-C to stop.\n`)
 while (!stopping) {
   const client = await pool.connect()
   try {
-    const done = await drain(client, { urls, config: DEFAULTS })
+    const done = await drain(client, { urls, token, config: DEFAULTS })
     if (done.delivered || done.retried || done.failed) {
       console.log(
         `  delivered ${done.delivered}  retrying ${done.retried}  failed ${done.failed}`

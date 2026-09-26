@@ -196,6 +196,24 @@ test('it retries', async (t) => {
     } finally { db.release(); await s.close() }
   })
 
+  await t.test('a receiver refusing the credential is a failed attempt, never delivered', async () => {
+    const fx = await dispatchedRound(1)
+    const s = await stub((req, res) => {
+      if (req.headers.authorization === 'Bearer right') { res.writeHead(200); return res.end() }
+      res.writeHead(401); res.end('bad dispatch token')
+    })
+    const db = await pool.connect()
+    try {
+      await drain(db, { urls: s.urls, token: 'wrong' })
+      for (const r of await rowsFor(fx.roundId)) {
+        assert.equal(r.status, 'pending')
+        assert.equal(r.attempts, 1)
+        assert.match(r.last_error, /401/)
+        assert.equal(r.delivered_at, null)
+      }
+    } finally { db.release(); await s.close() }
+  })
+
   await t.test('a row that failed before is delivered when the kitchen returns', async () => {
     const fx = await dispatchedRound(1)
     // Take it straight to "has failed a few times" instead of waiting out the

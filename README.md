@@ -26,7 +26,7 @@ construction. That is the whole design.
 | 3.8 | Diner PWA — shared cart, fractional payment, on a phone | **verified in a browser** (12 specs) |
 | — | State names aligned with CLAUDE.md; first three specs seeded | **147 checks total** |
 | 4 | Dispatch outbox and worker | **verified under concurrency** (26/26 full runs) |
-| 5 | KDS web (orders + staff alerts) | not started |
+| 5 | KDS web (orders + read-only staff alerts) | **verified in a browser** (3 specs) |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
 finished and verified while the ordering half did not exist at all: there were
@@ -42,8 +42,8 @@ Still missing before a table can actually eat:
   covers an unpaid balance on an open tab, is still unanswered as well as unbuilt.
 - **Staff actions** (D2, D17): force dispatch, release reservations, cancel round,
   record refund. Decided six phases ago, still absent.
-- **A staff surface of any kind.** The diner's PWA is built and browser-tested;
-  nothing on the other side of the counter exists at all.
+- **Staff accounts.** The kitchen display exists, behind a shared token per
+  deployment, and shows every venue on one screen.
 
 ## The Wompi bridge
 
@@ -268,10 +268,15 @@ cannot tell you if they break.
 > `delivered` traced back to `record()`).
 
 ```bash
-export DISPATCH_KDS_URL=http://localhost:8790/kds
-export DISPATCH_PRINT_URL=http://localhost:8790/print
+export DISPATCH_KDS_URL=http://localhost:8790/ingest/kds
+export DISPATCH_PRINT_URL=http://localhost:8790/ingest/print
+export DISPATCH_TOKEN=...   # the same value the KDS was started with
 npm run worker
 ```
+
+**A missing `DISPATCH_TOKEN` is a startup crash.** The kitchen display refuses
+tickets without it, so a worker running without one would fail every delivery
+until the attempts ran out and every table was flagged.
 
 Rows land in `dispatches` when a round is released. This delivers them, and
 without it the ledger is correct, every invariant holds, and nobody cooks
@@ -318,6 +323,51 @@ and released. The delivery failed, not the round.
 The ticket carries no money. `verify:schema` walks the payload and fails on any
 key matching an amount, balance, share or reference — asserting on the shape
 rather than a field list, so it still fires if someone adds one later.
+
+## The kitchen display
+
+The worker's destination for both channels, and the only staff surface. Three
+processes, three terminals, the same `DATABASE_URL` in each:
+
+```bash
+export DISPATCH_TOKEN=$(openssl rand -hex 24)     # worker -> KDS
+export KDS_STAFF_TOKEN=$(openssl rand -hex 24)    # tablet -> KDS
+
+npm run kds       # http://localhost:8790/kds#token=$KDS_STAFF_TOKEN
+npm run worker    # with DISPATCH_KDS_URL / DISPATCH_PRINT_URL as above
+npm run web       # the diner's side
+```
+
+Pay a round from the phone and it appears on the kitchen screen within a few
+seconds. "Listo" clears it.
+
+**Tickets are stored, not held in memory** (`kitchen_tickets`). A KDS that
+restarted with an empty screen while every dispatch said `delivered` would be
+paid food silently lost. The round is the idempotency key: a re-delivery bumps
+`receive_count` and never overwrites the ticket or reopens one already done. The
+KDS answers 2xx only after the insert commits, so a database error is a retry,
+not a lost order. The `print` channel is acknowledged and logged until a printer
+exists.
+
+**Two tokens, not one.** `DISPATCH_TOKEN` can put food on the screen;
+`KDS_STAFF_TOKEN` can only read it and mark it done. The one on a tablet on the
+kitchen wall is the second. It arrives once in the URL hash — never a query
+string, so it never reaches a server log — and moves to `localStorage`.
+
+**Alerts are read-only.** The right-hand panel lists every table in
+`requires_staff_attention` with every reason that applies, derived in SQL by
+`staff_alerts()`: money that could not be placed, a delivery that failed for good,
+a collection that stalled — or "unknown", because an alert that cannot explain
+itself is still an alert. "Visto" records that someone looked; it resolves
+nothing and changes no state. It snapshots the reasons rather than a time, so a
+new incident at an acknowledged table shows up again. Resolving an alert is a
+staff action (D2/D17) and does not exist yet.
+
+A red banner appears when due dispatches have waited longer than
+`KDS_STALL_MINUTES` (default 2): that is a stopped worker, not an idle queue.
+
+**One screen shows every venue.** There is no venue scoping yet; the staff token
+is per deployment. Fine for the demo, wrong for a second venue.
 
 ## The invariants
 
