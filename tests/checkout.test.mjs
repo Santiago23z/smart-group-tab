@@ -15,6 +15,7 @@
 
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 
 import { computeIntegritySignature, buildCheckoutUrl } from '../src/wompi/checkout.mjs'
 import { createPaymentIntent } from '../src/wompi/intent.mjs'
@@ -132,6 +133,24 @@ describe('the checkout URL', () => {
     })
 
     assert.equal(params(url).get('expiration-time'), '2026-09-18T23:30:00.000Z')
+  })
+
+  test('an expiring checkout signs its expiration too', () => {
+    // Wompi's documented order once an expiration is sent:
+    // <reference><amount><currency><expiration><secret>. Signing without it
+    // is rejected at checkout as "La firma es inválida" — found in the first
+    // live sandbox payment, which every earlier test had passed.
+    const url = buildCheckoutUrl({
+      reference: 'sgt-abc123',
+      amountInCents: 1000,
+      currency: 'COP',
+      expiresAt: new Date('2026-09-18T23:30:00.000Z'),
+      ...CONFIG,
+    })
+    const expected = createHash('sha256')
+      .update(`sgt-abc1231000COP2026-09-18T23:30:00.000Z${CONFIG.integritySecret}`)
+      .digest('hex')
+    assert.equal(params(url).get('signature:integrity'), expected)
   })
 })
 

@@ -17,6 +17,7 @@ export function computeIntegritySignature({
   reference,
   amountInCents,
   currency,
+  expirationTime = null,
   integritySecret,
 }) {
   if (!integritySecret) {
@@ -25,8 +26,12 @@ export function computeIntegritySignature({
 
   // Lowercase hex here, unlike the uppercase event checksum. Wompi is not
   // consistent between the two and neither will accept the other's casing.
+  //
+  // An expiration, when sent, is signed too, between currency and secret —
+  // the exact string that goes in the URL. Leaving it out is rejected at
+  // checkout as "La firma es inválida".
   return createHash('sha256')
-    .update(`${reference}${amountInCents}${currency}${integritySecret}`)
+    .update(`${reference}${amountInCents}${currency}${expirationTime ?? ''}${integritySecret}`)
     .digest('hex')
 }
 
@@ -44,6 +49,12 @@ export function buildCheckoutUrl({
     throw new Error('WOMPI_PUBLIC_KEY is not set')
   }
 
+  // Tie the checkout's life to the hold's. A checkout that outlives its
+  // reservation is a diner paying for a share somebody else has since taken —
+  // recoverable (the money becomes table credit and staff are told) but it is a
+  // bad minute for everyone involved, and avoidable here for free.
+  const expirationTime = expiresAt ? new Date(expiresAt).toISOString() : null
+
   const url = new URL(checkoutBaseUrl)
   url.searchParams.set('public-key', publicKey)
   url.searchParams.set('currency', currency)
@@ -51,19 +62,15 @@ export function buildCheckoutUrl({
   url.searchParams.set('reference', reference)
   url.searchParams.set(
     'signature:integrity',
-    computeIntegritySignature({ reference, amountInCents, currency, integritySecret })
+    computeIntegritySignature({ reference, amountInCents, currency, expirationTime, integritySecret })
   )
 
   if (redirectUrl) {
     url.searchParams.set('redirect-url', redirectUrl)
   }
 
-  // Tie the checkout's life to the hold's. A checkout that outlives its
-  // reservation is a diner paying for a share somebody else has since taken —
-  // recoverable (the money becomes table credit and staff are told) but it is a
-  // bad minute for everyone involved, and avoidable here for free.
-  if (expiresAt) {
-    url.searchParams.set('expiration-time', new Date(expiresAt).toISOString())
+  if (expirationTime) {
+    url.searchParams.set('expiration-time', expirationTime)
   }
 
   return url.toString()
