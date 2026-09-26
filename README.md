@@ -25,7 +25,7 @@ construction. That is the whole design.
 | 3.7 | Payment creation — Web Checkout, signed, reference-threaded | **verified** (88/88 total) |
 | 3.8 | Diner PWA — shared cart, fractional payment, on a phone | **verified in a browser** (12 specs) |
 | — | State names aligned with CLAUDE.md; first three specs seeded | **147 checks total** |
-| 4 | Dispatch outbox and worker | **built**, mutations verified — one concurrency test is flaky |
+| 4 | Dispatch outbox and worker | **verified under concurrency** (26/26 full runs) |
 | 5 | KDS web (orders + staff alerts) | not started |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
@@ -258,23 +258,14 @@ cannot tell you if they break.
 
 ## The dispatch worker
 
-> **Known issue, not yet resolved.** `two workers racing 25 queues never deliver a
-> ticket twice` fails in roughly 4 of 10 full `npm test` runs. Run alone, the file
-> passes consistently; the failure needs rows left in `dispatches` by other test
-> files. The signature is a contradiction: an injected spy recorded 22 deliveries
-> actually sent, all successful and all to the right URL, while 50 rows showed
-> `delivered`. Something claims and records outside the instrumented path.
->
-> Ruled out with evidence, so do not start there: a destructive global
-> `emptyQueue()` helper (removed, failure persists), overlapping tests (top-level
-> and awaited subtests both proven sequential), parallel test files (fails the same
-> in one process per file and with `--test-concurrency=1`), and the HTTP layer
-> (sent, ok, received and URLs all matched exactly).
->
-> The worker itself is not implicated: both of its mutations are caught, and
-> `lock_round`'s documented mutation still fails five tests. But a suite that is
-> red 40% of the time teaches people to ignore red, so this is a blocker on
-> calling phase 4 done.
+> **Stop any running `npm run worker` before `npm test`.** The tests share the
+> database with it, and a background worker claims their rows and delivers them to
+> its own destination. That produces `expected 50 deliveries, saw N` in
+> `two workers racing 25 queues never deliver a ticket twice` — rows `delivered`
+> that the test's stub never received. This is the most likely cause of the ~40%
+> failure rate seen once; it reproduces that exact signature, and without a stray
+> worker the suite passed 26/26 full runs (16 of them with every write to
+> `delivered` traced back to `record()`).
 
 ```bash
 export DISPATCH_KDS_URL=http://localhost:8790/kds
