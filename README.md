@@ -114,6 +114,13 @@ callback. Add `WOMPI_PUBLIC_KEY` and `WOMPI_INTEGRITY_SECRET` and the same butto
 sends you to a real signed checkout instead. Set `ALLOW_SIMULATED_PAYMENTS=false`
 to turn the shortcut off.
 
+**With Wompi keys present, the shortcut is refused whatever that flag says.** A
+simulated payment next to a real rail is food released for free by anyone who can
+reach the server. And the button only falls back to it when the server answers
+`wompi_not_configured`: a checkout Wompi refuses for any other reason — a lapsed
+hold, say — is shown as an error. It used to fall through and settle as
+simulated, recording money that never moved.
+
 The API is a thin shell over the RPCs — no business logic lives in Node. It
 passes the diner's identity through as `app.participant_id`, so the caller checks
 added during the code review are genuinely exercised rather than skipped the way

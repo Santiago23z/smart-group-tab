@@ -202,6 +202,11 @@ const ROUTES = {
     if (!allowSimulatedPayments) {
       return { status: 'rejected', reason: 'simulated_payments_disabled' }
     }
+    // A real rail is configured, so money has to move through it. Settling here
+    // would let anyone who can reach this server release food for free.
+    if (checkoutConfig.publicKey && checkoutConfig.integritySecret) {
+      return { status: 'rejected', reason: 'wompi_configured' }
+    }
     const { rows } = await pool.query(
       `select psp_reference, order_amount + tip_amount as total
          from contribution_reservations where id = $1`,
@@ -293,9 +298,12 @@ server.listen(port, '0.0.0.0', async () => {
   console.log(`  ${target}\n`)
   console.log(await QRCode.toString(target, { type: 'terminal', small: true }))
   console.log('  Escaneá el QR con el celular. Abrilo en dos teléfonos para probar la mesa compartida.')
-  console.log(allowSimulatedPayments
-    ? '  Pagos simulados activos: el botón de pagar pasa por confirm_webhook real.\n'
-    : '  Pagos simulados desactivados.\n')
+  console.log(
+    checkoutConfig.publicKey && checkoutConfig.integritySecret
+      ? '  Wompi configurado: el botón de pagar abre el checkout real. Pagos simulados rechazados.\n'
+      : allowSimulatedPayments
+        ? '  Pagos simulados activos: el botón de pagar pasa por confirm_webhook real.\n'
+        : '  Pagos simulados desactivados.\n')
 })
 
 const shutdown = async () => {

@@ -210,6 +210,36 @@ test('ordering during collection overflows into a new round', async ({ page }) =
   await expect(page.locator('#other-rounds')).toContainText('Ronda 1')
 })
 
+test('a checkout Wompi refuses is shown as an error, never settled as simulated', async ({ page }) => {
+  // The server under test has no Wompi keys, so its real answer would be
+  // `wompi_not_configured`. Pretend the keys are there and the checkout was
+  // refused for another reason — the case that used to fall through to
+  // /api/dev/pay and record a payment that never happened.
+  let simulated = 0
+  await page.route('**/api/payments/intent', (route) =>
+    route.fulfill({ json: { status: 'rejected', reason: 'reservation_not_payable' } }))
+  await page.route('**/api/dev/pay', (route) => { simulated++; return route.continue() })
+
+  const qr = await freshTable('refused')
+  await joinAs(page, qr, 'Ana')
+  await order(page, 'Hamburguesa de la casa')
+  await openCart(page)
+  await page.locator('button[data-close="as_ordered"]').tap()
+  await page.locator('#bar-action').tap()
+  await page.locator('#pay-confirm').tap()
+
+  await expect(page.locator('#pay-error')).toBeVisible()
+  await expect(page.locator('#pay-error')).toContainText('venció')
+  expect(simulated).toBe(0)
+
+  const [round] = await sql(
+    `select r.status from rounds r
+       join sessions s on s.id = r.session_id
+       join tables t on t.id = s.table_id
+      where t.qr_token = $1 and r.round_number = 1`, [qr])
+  expect(round.status).toBe('locked_for_payment')
+})
+
 test('paying the whole balance fires the kitchen exactly once', async ({ page }) => {
   const qr = await freshTable('pay')
   await joinAs(page, qr, 'Ana')

@@ -58,6 +58,9 @@ const REASONS = {
   participant_not_in_session: 'No estás en esta mesa.',
   session_closed: 'La mesa ya se cerró.',
   wompi_not_configured: 'Falta configurar Wompi. Usá el pago simulado.',
+  reservation_not_payable: 'Tu reserva venció o ya se pagó. Mirá el saldo y volvé a intentar.',
+  unknown_reservation: 'No encontramos tu reserva. Volvé a intentar.',
+  wompi_configured: 'Los pagos simulados están apagados: esta mesa cobra con Wompi.',
 }
 const explain = (r) => REASONS[r?.reason] ?? r?.reason ?? 'No se pudo.'
 
@@ -431,6 +434,15 @@ async function confirmPayment() {
     $('pay').hidden = true
     location.href = intent.checkout_url
     return
+  }
+
+  // Only "no Wompi keys at all" may fall back to the simulated payment. Any other
+  // refusal — a lapsed hold, an unknown reservation — is a real answer from a
+  // real rail, and settling it as simulated would record money that never moved
+  // and send food to the kitchen unpaid.
+  if (intent.reason !== 'wompi_not_configured') {
+    await refresh()
+    return payError(explain(intent))
   }
 
   // No Wompi keys configured: settle through the same confirm_webhook a real
