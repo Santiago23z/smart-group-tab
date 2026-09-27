@@ -435,6 +435,8 @@ test('an open tab: two rounds, the bill, one payment each, and the table closes'
   await a.locator('#ask-bill').tap()
   await expect(a.locator('#bill')).toContainText('Cuenta pedida')
   await expect(a.locator('#bill')).toContainText('$46.000')
+  // Nothing more can be ordered, so nothing may say otherwise.
+  await expect(a.locator('#round-actions')).not.toContainText('seguir pidiendo')
 
   // Ana: one payment for both her beers.
   await expect(a.locator('#bar-amount')).toHaveText('$18.000')

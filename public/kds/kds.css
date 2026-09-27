@@ -128,7 +128,7 @@ button.danger { background: var(--err); color: #1a0805; }
 .refund .state { color: var(--warn); font-weight: 700; }
 .refund .state.done { color: var(--ok); }
 
-#collection-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .8rem; }
+#collection-list, #table-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .8rem; }
 .collection {
   border: 2px solid var(--line);
   border-radius: var(--radius);

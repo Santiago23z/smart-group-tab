@@ -207,7 +207,7 @@ function renderBill() {
   if (state.session.status === 'closed') {
     el.innerHTML = `
       <div class="banner ok"><strong>Mesa cerrada</strong>
-      <span class="muted">Todo quedó pagado. ¡Gracias!</span></div>
+      <span class="muted">La cuenta de esta mesa quedó cerrada. ¡Gracias por venir!</span></div>
       <button class="ghost" id="start-over">Empezar una mesa nueva</button>`
     return
   }
@@ -290,9 +290,12 @@ function renderRoundActions(round) {
   }
 
   if (round.status === 'paid_and_dispatched') {
+    // After the bill (or once closed) nothing more can be ordered: saying so
+    // here would contradict the bill banner right below.
     el.innerHTML = `
       <div class="banner ok"><strong>Pedido en cocina</strong>
-      <span class="muted">Ya podés seguir pidiendo: va a una ronda nueva.</span></div>`
+      ${billRequested() || state.session.status === 'closed' ? '' : `
+        <span class="muted">Ya podés seguir pidiendo: va a una ronda nueva.</span>`}</div>`
     return
   }
 
