@@ -136,6 +136,25 @@ const CHECKS = [
              and not exists (select 1 from webhook_events w where w.id = c.webhook_event_id)`,
   },
   {
+    // Cash and card-terminal payments go through confirm_webhook as provider
+    // 'manual'; the human-readable record must exist for every one of them.
+    name: 'ledger  every manual payment event has its record',
+    stamp: 'w.received_at',
+    sql: `select w.id from webhook_events w
+           where w.provider = 'manual' AND_SINCE
+             and not exists (select 1 from manual_payments m where m.webhook_event_id = w.id)`,
+  },
+  {
+    name: 'ledger  every manual payment record was applied',
+    stamp: 'm.created_at',
+    sql: `select m.id from manual_payments m
+           where TRUE AND_SINCE
+             and not exists (select 1 from contributions c
+                              where c.webhook_event_id = m.webhook_event_id
+                                and not c.applied_to_prepaid_balance
+                                and c.order_amount = m.amount and c.tip_amount = m.tip)`,
+  },
+  {
     // The one the review's worst finding violated. An allocation that no longer
     // matches the share it points at means a split went through without carrying
     // the claim, and a late approval can settle for more than the share is worth.

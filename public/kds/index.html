@@ -89,6 +89,31 @@
   </form>
 </dialog>
 
+<!-- Cobrar en caja: plata recibida en efectivo o datáfono. El monto no se
+     escribe: es lo que suma la parte elegida. -->
+<dialog id="cash-dialog">
+  <form method="dialog" id="cash-form">
+    <h2 id="cash-title">Cobrar en caja</h2>
+    <fieldset class="parts" id="cash-parts"></fieldset>
+    <label>Cómo pagó
+      <select name="method">
+        <option value="cash">Efectivo</option>
+        <option value="card_terminal">Datáfono</option>
+      </select>
+    </label>
+    <label>Referencia (opcional)
+      <input name="reference" maxlength="100" placeholder="Nº de voucher">
+    </label>
+    <label>Propina (opcional)
+      <input name="tip" type="number" inputmode="numeric" min="0" step="1000" value="0">
+    </label>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" data-close>Cancelar</button>
+      <button type="submit">Continuar</button>
+    </div>
+  </form>
+</dialog>
+
 <!-- Confirmación genérica para acciones que no se deshacen. -->
 <dialog id="confirm-dialog">
   <form method="dialog">

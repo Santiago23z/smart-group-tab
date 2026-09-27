@@ -68,6 +68,10 @@ Una sola pantalla para el personal, protegida con un enlace secreto:
   - Un cobro trabado → **Reanudar cobro** o **Cancelar ronda**.
 - **Cobros abiertos:** rondas esperando pago, quién tiene apartada su parte, y los botones
   **Liberar** (soltar una parte apartada) y **Cancelar ronda**.
+- **Cobrar en caja:** en "Cobros abiertos" y en "Mesas abiertas", el mesero registra un pago
+  recibido en **efectivo o datáfono**, de una persona o de todo lo que falta. No se escribe el
+  monto: es lo que suma esa parte (más la propina, si hay). Pide confirmación y no se puede
+  deshacer.
 - **Mesas abiertas:** cuánto debe cada mesa y cada persona, y los botones **Pedir la cuenta**,
   **Asumir pérdida** (si toda la mesa se fue: cubre toda la cuenta pendiente, nunca una parte, con
   motivo obligatorio) y **Cerrar mesa** (si no se puede, dice por qué).
@@ -171,6 +175,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 26–27 sep | Acciones del personal: devolver, cancelar, reanudar, liberar, reintentar |
 | 27 sep | Cerrar la cuenta: pedir la cuenta, un pago por persona, asumir pérdida, cierre automático |
 | 27 sep | Nuevo diseño de la app del comensal como **Ronda** (logo, carta, barra de pago) |
+| 27 sep | Pagos en efectivo y datáfono registrados por el personal |
 
 ## Lo que falta
 
@@ -182,8 +187,6 @@ Nueve capacidades documentadas en `openspec/specs/`:
 
 **Funciones:**
 
-- **Pagos en efectivo o datáfono:** hoy solo se paga por Wompi, así que una mesa que paga en
-  efectivo no se puede cerrar.
 - **Reabrir una mesa** después de pedir la cuenta ("queremos otra ronda").
 - **Quitar un plato después de cerrar la ronda:** hoy solo se puede antes (es una regla a propósito).
 

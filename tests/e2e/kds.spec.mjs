@@ -272,3 +272,55 @@ test('"Cerrar mesa" is refused, with the reason, while credit is left on the tab
   const [s] = await sql(`select status from sessions where id = $1`, [sessionId])
   expect(s.status).toBe('settling')
 })
+
+// ---------------------------------------------------------------------------
+// Cobrar en caja
+// ---------------------------------------------------------------------------
+test('cash for one person: "No" records nothing, "Sí" pays and sends the round to the kitchen', async ({ page }) => {
+  const { roundId, label } = await openRound('kds-cash')
+  await openScreen(page)
+  const card = page.locator(`#collection-list [data-round="${roundId}"]`)
+  await expect(card).toContainText(label, { timeout: 8000 })
+
+  const pay = async () => {
+    await card.getByRole('button', { name: 'Cobrar en caja' }).click()
+    const dialog = page.locator('#cash-dialog')
+    await expect(dialog).toContainText('Santi')
+    await dialog.locator('label', { hasText: 'Santi' }).locator('input').check()
+    await dialog.locator('select[name="method"]').selectOption('cash')
+    await dialog.locator('button[type="submit"]').click()
+    await expect(page.locator('#confirm-title')).toContainText('$30.000 en efectivo')
+  }
+
+  await pay()
+  await page.locator('#confirm-dialog button', { hasText: 'No' }).click()
+  expect((await sql(`select count(*) from manual_payments where round_id = $1`, [roundId]))[0].count).toBe('0')
+
+  await pay()
+  await page.locator('#confirm-yes').click()
+  await expect(card).toHaveCount(0, { timeout: 8000 })
+  const [m] = await sql(`select method, amount from manual_payments where round_id = $1`, [roundId])
+  expect([m.method, Number(m.amount)]).toEqual(['cash', 30000])
+  expect((await sql(`select status from rounds where id = $1`, [roundId]))[0].status).toBe('paid_and_dispatched')
+})
+
+test('the rest of a tab on the card terminal closes the table', async ({ page }) => {
+  const { sessionId, participantId } = await servedTab('kds-cash-tab')
+  await rpc('request_bill', sessionId, participantId)
+
+  await openScreen(page)
+  const card = page.locator(`#table-list [data-session="${sessionId}"]`)
+  await card.getByRole('button', { name: 'Cobrar en caja' }).click({ timeout: 8000 })
+  const dialog = page.locator('#cash-dialog')
+  await dialog.locator('label', { hasText: 'Todo lo que falta' }).locator('input').check()
+  await dialog.locator('select[name="method"]').selectOption('card_terminal')
+  await dialog.locator('input[name="reference"]').fill('0457')
+  await dialog.locator('button[type="submit"]').click()
+  await expect(page.locator('#confirm-title')).toContainText('$14.000 en datáfono')
+  await page.locator('#confirm-yes').click()
+
+  await expect(card).toHaveCount(0, { timeout: 8000 })
+  expect((await sql(`select status from sessions where id = $1`, [sessionId]))[0].status).toBe('closed')
+  const [m] = await sql(`select method, reference from manual_payments where session_id = $1`, [sessionId])
+  expect([m.method, m.reference]).toEqual(['card_terminal', '0457'])
+})

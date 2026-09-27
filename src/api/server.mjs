@@ -113,7 +113,9 @@ async function tableState(sessionId, participantId) {
        'participants', (
          select coalesce(jsonb_agg(jsonb_build_object('id', p.id, 'nickname', p.nickname)
                          order by p.joined_at), '[]'::jsonb)
-           from participants p where p.session_id = se.id),
+           -- Guests only: the table's "Caja" (staff) pays cash on the table's behalf
+           -- and is not someone sitting there.
+           from participants p where p.session_id = se.id and p.kind = 'guest'),
        'menu', (
          select coalesce(jsonb_agg(jsonb_build_object(
                   'id', pr.id, 'name', pr.name, 'category', pr.category,

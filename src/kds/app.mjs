@@ -170,6 +170,21 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
             return reply(answer(r), r)
           }
 
+          // Money received in hand: cash or the card terminal. The amount is not
+          // sent — the database derives it from the part chosen.
+          if (url.pathname === '/kds/api/manual-payments') {
+            if (!['round', 'tab'].includes(body.scope)) return reply(400, { error: 'bad_scope' })
+            if (!UUID.test(body.target_id ?? '')) return reply(400, { error: 'bad_target' })
+            if (body.participant_id != null && !UUID.test(body.participant_id)) return reply(400, { error: 'bad_participant' })
+            const tip = body.tip ?? 0
+            if (!Number.isSafeInteger(tip)) return reply(400, { error: 'bad_tip' })
+            const r = await one(`select staff_record_manual_payment($1, $2, $3, $4, $5, $6::bigint) as r`, [
+              body.scope, body.target_id, body.participant_id ?? null, body.method ?? null,
+              body.reference ?? null, tip,
+            ])
+            return reply(answer(r), r)
+          }
+
           for (const [pattern, fn, args] of ACTIONS) {
             const m = pattern.exec(url.pathname)
             if (!m) continue

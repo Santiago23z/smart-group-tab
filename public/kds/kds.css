@@ -168,3 +168,12 @@ dialog input, dialog select {
   background: var(--surface-2); border: 2px solid var(--warn); font-weight: 700;
   max-width: 90vw;
 }
+
+.parts { border: 0; margin: 0; padding: 0; display: grid; gap: .45rem; }
+.parts label {
+  display: flex; align-items: center; gap: .7rem; font-weight: 600;
+  padding: .65rem .8rem; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line);
+}
+.parts label:has(input:checked) { border-color: var(--accent); }
+.parts input { accent-color: var(--accent); width: 1.1rem; height: 1.1rem; }
+.parts .amt { margin-left: auto; font-variant-numeric: tabular-nums; }

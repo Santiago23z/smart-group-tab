@@ -30,6 +30,7 @@ construction. That is the whole design.
 | 6 | Wompi reconciliation — lookups on return and every minute | **verified live in the sandbox** |
 | 7 | Staff actions — refund, cancel, resume, release, retry | **verified under concurrency and in a browser** |
 | 8 | Closing a table — the bill, one payment per person across rounds, write-off | **verified under concurrency and in a browser** |
+| 9 | Cash and card-terminal payments recorded by staff | **verified in a browser** |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
 finished and verified while the ordering half did not exist at all: there were
@@ -451,7 +452,21 @@ kitchen unpaid, and a reservation only accepted a round still in collection.
   refunded.
 
 Not built: reopening a table after the bill, applying leftover credit to the tab
-(it is refunded), partial write-offs, cash.
+(it is refunded), partial write-offs.
+
+## Cash and the card terminal
+
+Staff record money received in hand from the kitchen screen ("Cobrar en caja"),
+for one person's part or for everything still unpaid, of a round in collection or
+of a tab in settlement. It is **not a second way to write the ledger**:
+`staff_record_manual_payment` reserves exactly the free shares (never ones a
+diner is holding in Wompi) through `reserve_contribution` / `reserve_tab`, and
+settles them through `confirm_webhook` with provider `manual` — so release to the
+kitchen, closing the table and I3 ("every contribution names an event") all hold
+unchanged. The amount is never typed: it is what the part adds up to, plus an
+optional tip. `manual_payments` records method, reference, amount, tip and who it
+was for ("the rest" is paid by the table's staff participant, *Caja*). There is
+no undo; the screen asks to confirm first.
 
 ## The invariants
 

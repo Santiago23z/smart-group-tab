@@ -368,4 +368,40 @@ test('staff close tables from the kitchen screen', async (t) => {
   })
 })
 
+test('staff record cash and card-terminal payments', async (t) => {
+  const kds = await startKds()
+  t.after(() => kds.close())
+  const post = (body) => kds.staff('/kds/api/manual-payments', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  })
+
+  await t.test('each person\'s free part is in the state, and paying it settles', async () => {
+    const fx = await createFixture(pool, { participants: 2, items: [{ price: 20_000, owner: 0 }, { price: 7_000, owner: 1 }] })
+    const collection = (await (await kds.staff('/kds/api/state')).json()).collections.find((c) => c.round_id === fx.roundId)
+    assert.deepEqual(collection.parts.map((p) => [p.nickname, Number(p.free)]).sort(), [['p0', 20_000], ['p1', 7_000]])
+
+    const res = await post({ scope: 'round', target_id: fx.roundId, participant_id: fx.participantIds[0], method: 'cash' })
+    assert.equal(res.status, 200)
+    assert.equal(Number((await res.json()).amount), 20_000)
+
+    const rest = await (await post({ scope: 'round', target_id: fx.roundId, method: 'card_terminal', reference: '0457' })).json()
+    assert.deepEqual([rest.status, Number(rest.amount), rest.dispatched], ['recorded', 7_000, true])
+  })
+
+  await t.test('refusals are 409, unknown targets 404, malformed 400, no token 401', async () => {
+    const fx = await createFixture(pool, { participants: 1, items: [{ price: 5_000 }] })
+    assert.equal((await post({ scope: 'round', target_id: fx.roundId, method: 'bitcoin' })).status, 409)
+    assert.equal((await post({ scope: 'round', target_id: '00000000-0000-4000-8000-00000000abcd', method: 'cash' })).status, 404)
+    assert.equal((await post({ scope: 'galaxy', target_id: fx.roundId, method: 'cash' })).status, 400)
+    assert.equal((await post({ scope: 'round', target_id: fx.roundId, method: 'cash', tip: 1.5 })).status, 400)
+    const res = await fetch(`${kds.base}/kds/api/manual-payments`, {
+      method: 'POST', headers: { authorization: `Bearer ${DISPATCH}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ scope: 'round', target_id: fx.roundId, method: 'cash' }),
+    })
+    assert.equal(res.status, 401)
+    const { rows } = await pool.query(`select count(*) from manual_payments where round_id = $1`, [fx.roundId])
+    assert.equal(rows[0].count, '0')
+  })
+})
+
 test.after(() => pool.end())

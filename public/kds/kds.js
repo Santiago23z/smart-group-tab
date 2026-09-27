@@ -299,6 +299,15 @@ function renderCollections(collections) {
           el('span', {}, `${h.nickname} · ${money(h.amount)} · hasta ${hhmm(h.expires_at)}`),
           el('button', { class: 'secondary', onclick: () => run(`/kds/api/reservations/${h.id}/release`) }, 'Liberar')))),
       el('div', { class: 'actions' },
+        !stalled && Number(c.unclaimed) > 0 && el('button', {
+          onclick: () => openCash({
+            scope: 'round', targetId: c.round_id, table: `${c.table} · Ronda ${c.round_number}`,
+            choices: [
+              ...c.parts.map((p) => ({ participantId: p.participant_id, label: p.nickname, amount: Number(p.free) })),
+              { participantId: null, label: 'Todo lo que falta', amount: Number(c.unclaimed) },
+            ],
+          }),
+        }, 'Cobrar en caja'),
         stalled && el('button', { onclick: () => run(`/kds/api/rounds/${c.round_id}/resume`) }, 'Reanudar cobro'),
         el('button', {
           class: 'danger',
@@ -306,6 +315,54 @@ function renderCollections(collections) {
         }, 'Cancelar ronda')))
   }))
 }
+
+// ---------------------------------------------------------------------------
+// Cobrar en caja
+// ---------------------------------------------------------------------------
+const METHOD = { cash: 'efectivo', card_terminal: 'datáfono' }
+let cashTarget = null
+
+/**
+ * choices: [{ participantId (null = the rest), label, amount }]. The amount is
+ * shown, never typed: the database charges exactly what the part adds up to.
+ */
+function openCash({ scope, targetId, table, choices }) {
+  cashTarget = { scope, targetId, table, choices }
+  const form = $('cash-form')
+  form.reset()
+  $('cash-title').textContent = `Cobrar en caja · ${table}`
+  $('cash-parts').replaceChildren(...choices.map((c, i) =>
+    el('label', {},
+      el('input', { type: 'radio', name: 'part', value: String(i), ...(i === choices.length - 1 ? { checked: '' } : {}) }),
+      el('span', {}, c.label),
+      el('span', { class: 'amt' }, money(c.amount)))))
+  $('cash-dialog').showModal()
+}
+
+$('cash-form').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  const form = e.currentTarget
+  const choice = cashTarget.choices[Number(form.part.value)]
+  const tip = Number(form.tip.value || 0)
+  const method = form.method.value
+  $('cash-dialog').close()
+
+  const ok = await confirmAction({
+    title: `¿Registrar ${money(choice.amount + tip)} en ${METHOD[method]}?`,
+    body: `${cashTarget.table} · ${choice.label}${tip ? ` (incluye ${money(tip)} de propina)` : ''}. ` +
+      'Queda como pagado y no se puede deshacer.',
+    yes: 'Sí, registrar',
+  })
+  if (!ok) return
+  await run('/kds/api/manual-payments', {
+    scope: cashTarget.scope,
+    target_id: cashTarget.targetId,
+    participant_id: choice.participantId,
+    method,
+    reference: form.reference.value || null,
+    tip,
+  })
+})
 
 let writeOffTarget = null
 
@@ -341,6 +398,17 @@ function renderOpenTables(tables) {
       el('div', { class: 'actions' },
         !asked && el('button', { class: 'secondary', onclick: () => run(`/kds/api/sessions/${t.session_id}/bill`) },
           'Pedir la cuenta'),
+        asked && owed - Number(t.tab.held) > 0 && el('button', {
+          onclick: () => openCash({
+            scope: 'tab', targetId: t.session_id, table: t.table,
+            choices: [
+              ...t.tab.participants
+                .filter((p) => Number(p.unpaid) - Number(p.held) > 0)
+                .map((p) => ({ participantId: p.participant_id, label: p.nickname, amount: Number(p.unpaid) - Number(p.held) })),
+              { participantId: null, label: 'Todo lo que falta', amount: owed - Number(t.tab.held) },
+            ],
+          }),
+        }, 'Cobrar en caja'),
         asked && owed > 0 && el('button', { class: 'danger', onclick: () => openWriteOff(t) }, 'Asumir pérdida'),
         el('button', { onclick: () => run(`/kds/api/sessions/${t.session_id}/close`) }, 'Cerrar mesa')))
   }))
