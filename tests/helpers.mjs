@@ -6,9 +6,10 @@
 // scripts/verify-schema.mjs).
 
 import pg from 'pg'
+import { testDatabaseUrl } from '../scripts/test-database.mjs'
 
-export const connectionString =
-  process.env.DATABASE_URL ?? 'postgres://santiagozapata@localhost:5432/smart_group_tab'
+// Never the demo's database: see scripts/test-database.mjs.
+export const connectionString = testDatabaseUrl()
 
 /**
  * A pool wide enough that N parallel queries really do get N distinct backends.

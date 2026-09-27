@@ -16,10 +16,11 @@ import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { networkInterfaces } from 'node:os'
+import { hostname, networkInterfaces } from 'node:os'
 import pg from 'pg'
 import QRCode from 'qrcode'
 import { createPaymentIntent } from '../wompi/intent.mjs'
+import { reachableHost } from './address.mjs'
 import { createWompiApi, WompiApiError } from '../wompi/api.mjs'
 import { reconcileTransaction } from '../wompi/reconcile.mjs'
 
@@ -335,14 +336,15 @@ server.listen(port, '0.0.0.0', async () => {
       where t.is_active order by v.created_at, t.label limit 1`
   )
 
-  console.log(`\n  Smart Group Tab — servidor en http://${lanAddress()}:${port}\n`)
+  const host = reachableHost(hostname(), lanAddress())
+  console.log(`\n  Smart Group Tab — servidor en http://${host}:${port}\n`)
 
   if (rows.length === 0) {
     console.log('  No hay mesas. Corré `npm run db:seed` primero.\n')
     return
   }
 
-  const target = `http://${lanAddress()}:${port}/t/${rows[0].qr_token}`
+  const target = `http://${host}:${port}/t/${rows[0].qr_token}`
   console.log(`  ${rows[0].name} · ${rows[0].label}`)
   console.log(`  ${target}\n`)
   console.log(await QRCode.toString(target, { type: 'terminal', small: true }))

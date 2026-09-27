@@ -59,7 +59,7 @@ auditoría sobre los datos reales (`npm run audit`).
 | Qué | Resultado |
 |---|---|
 | Esquema y permisos de la base de datos (`npm run verify:schema`) | 43/43 |
-| Tests de lógica y concurrencia (`npm test`) | 193/193 |
+| Tests de lógica y concurrencia (`npm test`) | 198/198 |
 | Tests en el navegador, con iPhone y Safari simulados (`npm run test:e2e`) | 20/20 |
 | Auditoría de reglas sobre los datos (`npm run audit`) | 10/10 |
 | Pagos reales en el sandbox de Wompi, desde un celular | Funciona de punta a punta |
@@ -91,7 +91,8 @@ Direcciones para la demo:
   y no la IP, porque Wompi bloquea el pago si la dirección de regreso es una IP.
 - Cocina: `http://localhost:8790/kds#token=prueba-cocina`.
 
-Antes de `npm test`, detener `npm run worker`: si queda corriendo, se roba envíos de los tests.
+Los tests usan su propia base de datos (`smart_group_tab_test`), que se crea sola al correr
+`npm test`. La demo puede seguir encendida mientras corren.
 
 Variables de `.env` (ver `.env.example`): `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`,
 `WOMPI_EVENTS_SECRET`, `WOMPI_PRIVATE_KEY`, `DISPATCH_TOKEN`, `KDS_STAFF_TOKEN`, entre otras.
@@ -135,10 +136,10 @@ Siete capacidades documentadas en `openspec/specs/`:
 
 Limitaciones conocidas:
 
-- Los tests y la demo usan la misma base de datos, por eso la cocina muestra cientos de pedidos
-  de prueba.
-- El QR que imprime `npm run web` usa la IP, así que con él el comensal no vuelve a la mesa
-  después de pagar. El pago igual se registra con la revisión cada minuto.
+- La base de la demo todavía guarda los pedidos de prueba de antes de separar las bases, así
+  que la cocina los sigue mostrando hasta limpiarla.
+- Si el computador no tiene nombre `.local` (fuera de Mac), el QR usa la IP y el comensal no
+  vuelve a la mesa después de pagar. El pago igual se registra con la revisión cada minuto.
 - Un pago abandonado se revisa cada minuto durante 24 horas: hasta 1.440 consultas a Wompi.
 - El túnel de Cloudflare cambia de dirección cada vez que se reinicia, y hay que volver a
   pegarla en el panel de Wompi ("URL de Eventos").
@@ -149,10 +150,11 @@ La meta del MVP ya funciona de punta a punta: dos celulares en la misma mesa, ca
 compartido, pago dividido en Wompi sandbox y pedido en la pantalla de cocina. Estas son las
 opciones para el siguiente paso, de la más pequeña a la más grande:
 
-1. **Dejar la demo limpia** (pequeño, uno o dos días).
-   - Base de datos aparte para los tests, para que la cocina no muestre pedidos de prueba.
-   - Que el QR use el nombre del computador y no la IP, para que el comensal siempre vuelva a
-     la mesa después de pagar.
+1. **Dejar la demo limpia** — hecho el 26 de septiembre.
+   - Los tests usan su propia base de datos, así que la cocina de la demo ya no recibe pedidos
+     de prueba nuevos.
+   - El QR usa el nombre del computador (`.local`) y no la IP, así que el comensal vuelve a la
+     mesa después de pagar.
 2. **Acciones del personal en la pantalla de cocina** (mediano). Hoy las alertas solo se ven;
    una mesa marcada queda marcada para siempre. Faltan botones para:
    - registrar la devolución de un saldo a favor;

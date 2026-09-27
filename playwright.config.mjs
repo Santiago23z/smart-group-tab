@@ -6,11 +6,12 @@
 // drive a real browser against the real servers against the real database.
 
 import { defineConfig, devices } from '@playwright/test'
+import { testDatabaseUrl } from './scripts/test-database.mjs'
 
 const PORT = Number(process.env.E2E_PORT ?? 8791)
 const KDS_PORT = Number(process.env.E2E_KDS_PORT ?? 8792)
-const DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgres://santiagozapata@localhost:5432/smart_group_tab'
+// Never the demo's database: see scripts/test-database.mjs.
+const DATABASE_URL = testDatabaseUrl()
 
 // Fixed test credentials. tests/e2e/kds.spec.mjs uses the same two literals.
 const E2E_DISPATCH_TOKEN = 'e2e-dispatch-token'

@@ -7,12 +7,12 @@
 
 import pg from 'pg'
 import { expect } from '@playwright/test'
+import { testDatabaseUrl } from '../../scripts/test-database.mjs'
 
 const VENUE = '00000000-0000-4000-8000-000000000001'
 
 const pool = new pg.Pool({
-  connectionString:
-    process.env.DATABASE_URL ?? 'postgres://santiagozapata@localhost:5432/smart_group_tab',
+  connectionString: testDatabaseUrl(),
   max: 4,
 })
 

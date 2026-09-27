@@ -7,6 +7,7 @@ import { test, expect } from '@playwright/test'
 import pg from 'pg'
 import { freshTable, sql, closePool } from './helpers.mjs'
 import { drain } from '../../src/worker/run.mjs'
+import { testDatabaseUrl } from '../../scripts/test-database.mjs'
 
 // Same literals as playwright.config.mjs.
 const DISPATCH_TOKEN = 'e2e-dispatch-token'
@@ -14,8 +15,7 @@ const STAFF_TOKEN = 'e2e-staff-token'
 const VENUE = '00000000-0000-4000-8000-000000000001'
 
 const pool = new pg.Pool({
-  connectionString:
-    process.env.DATABASE_URL ?? 'postgres://santiagozapata@localhost:5432/smart_group_tab',
+  connectionString: testDatabaseUrl(),
   max: 2,
 })
 

@@ -184,6 +184,13 @@ export DATABASE_URL='postgres://<you>@localhost:5432/smart_group_tab'
 npm test
 ```
 
+The tests never use `DATABASE_URL` itself: they use the same server with
+`_test` appended to the database name (`smart_group_tab_test`), or
+`TEST_DATABASE_URL` if set, and refuse any database whose name does not end in
+`_test`. `npm test` and `npm run test:e2e` create, migrate and seed it first
+(`scripts/test-db.mjs`). The demo's kitchen screen therefore shows only real
+orders, and a demo worker can stay running during a test run.
+
 ### Neither of those renders anything
 
 Both prove the ledger is correct. Neither proves a diner can reach it, and that
@@ -282,9 +289,10 @@ cannot tell you if they break.
 
 ## The dispatch worker
 
-> **Stop any running `npm run worker` before `npm test`.** The tests share the
-> database with it, and a background worker claims their rows and delivers them to
-> its own destination. That produces `expected 50 deliveries, saw N` in
+> Tests run against their own database (`<name>_test`, see below), so a demo
+> worker left running no longer touches them. Before that split, the tests shared
+> the database with it, and a background worker claimed their rows and delivered
+> them to its own destination. That produced `expected 50 deliveries, saw N` in
 > `two workers racing 25 queues never deliver a ticket twice` — rows `delivered`
 > that the test's stub never received. This is the most likely cause of the ~40%
 > failure rate seen once; it reproduces that exact signature, and without a stray

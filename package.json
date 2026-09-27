@@ -12,15 +12,18 @@
     "db:seed": "node scripts/db.mjs seed",
     "db:reset": "node scripts/db.mjs reset",
     "verify:schema": "node scripts/verify-schema.mjs",
+    "pretest": "node scripts/test-db.mjs",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
     "wompi": "node src/wompi/server.mjs",
     "worker": "node src/worker/server.mjs",
     "kds": "node src/kds/server.mjs",
     "audit": "node scripts/audit-invariants.mjs",
+    "audit:test": "node scripts/test-db.mjs node scripts/audit-invariants.mjs",
     "demo": "node scripts/demo.mjs",
     "web": "node src/api/server.mjs",
+    "pretest:e2e": "node scripts/test-db.mjs",
     "test:e2e": "playwright test",
-    "test:all": "npm run verify:schema && npm test && npm run test:e2e && npm run audit"
+    "test:all": "npm run verify:schema && npm test && npm run test:e2e && npm run audit:test"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
