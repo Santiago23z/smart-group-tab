@@ -179,8 +179,8 @@ function renderCart(round) {
             </div>
             ${editable ? `
               <div class="item-actions">
-                <button class="ghost" data-share="${item.id}">Compartir</button>
-                <button class="ghost" data-void="${item.id}">Quitar</button>
+                <button class="text" data-share="${item.id}">Compartir</button>
+                <button class="text" data-void="${item.id}">Quitar</button>
               </div>` : ''}
           </div>
         </div>`).join('')
@@ -213,7 +213,10 @@ function renderBill() {
   }
 
   if (!billRequested()) {
-    el.innerHTML = state.rounds.some((r) => r.status !== 'draft')
+    // Not while a round is still being collected: that round has to be paid
+    // first, and the button next to "En cobro" read as a second way to pay.
+    const collecting = state.rounds.some((r) => ['locked_for_payment', 'requires_staff_attention'].includes(r.status))
+    el.innerHTML = state.rounds.some((r) => r.status !== 'draft') && !collecting
       ? `<button class="ghost" id="ask-bill">Pedir la cuenta</button>`
       : ''
     return
