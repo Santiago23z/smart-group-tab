@@ -53,13 +53,43 @@ const CHECKS = [
           having count(*) > 1`,
   },
   {
+    // Counted through what was settled, share by share, not through
+    // contributions.round_id: a tab payment covers shares of several rounds and
+    // belongs to none of them.
     name: 'I1c  no round collected more than it is worth',
     stamp: 'r.created_at',
     sql: `select r.id from rounds r
            where TRUE AND_SINCE
-             and (select coalesce(sum(c.order_amount), 0) from contributions c
-                   where c.round_id = r.id and not c.applied_to_prepaid_balance)
+             and (select coalesce(sum(ra.amount), 0)
+                    from reservation_allocations ra
+                    join contribution_reservations cr on cr.id = ra.reservation_id
+                    join cart_item_shares s on s.id = ra.cart_item_share_id
+                   where s.round_id = r.id and cr.status = 'confirmed')
                  > round_total(r.id)`,
+  },
+  {
+    name: 'I1c  no share is both paid and written off',
+    stamp: 's.created_at',
+    sql: `select s.id from cart_item_shares s
+           where TRUE AND_SINCE
+             and is_share_settled(s.id)
+             and exists (select 1 from write_off_shares w where w.cart_item_share_id = s.id)`,
+  },
+  {
+    name: 'ledger  an applied payment is exactly what it settled',
+    stamp: 'c.created_at',
+    sql: `select c.id from contributions c
+           where not c.applied_to_prepaid_balance AND_SINCE
+             and c.order_amount <> (select coalesce(sum(ra.amount), 0)
+                                      from reservation_allocations ra
+                                     where ra.reservation_id = c.reservation_id)`,
+  },
+  {
+    name: 'ledger  a closed table owes nothing',
+    stamp: 's.opened_at',
+    sql: `select s.id from sessions s
+           where s.status = 'closed' AND_SINCE
+             and exists (select 1 from session_tab_shares(s.id))`,
   },
   {
     name: 'I2   no round dispatched twice to one channel',
