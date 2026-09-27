@@ -2,8 +2,8 @@
 
 ## Purpose
 Defines how conditions that need a human at the venue are shown to staff: which tables need
-attention and why, and whether the kitchen queue is being drained at all. Read-only: resolving
-an alert is a separate staff action.
+attention and why, whether the kitchen queue is being drained at all, and when an alert clears.
+Resolving the cause of an alert is a staff action (see `staff-actions`).
 
 ## Requirements
 
@@ -13,11 +13,11 @@ The staff screen SHALL list every session in `requires_staff_attention`, showing
 every reason that applies:
 
 - **money not placed**: a payment for the session was credited to its prepaid balance instead of
-  being applied, with the credited amount;
+  being applied, with the credited amount and any refund recorded against it, until refunds
+  `completed` against it cover the whole amount;
 - **delivery failed**: a dispatch for one of its rounds is `failed`, with the channel and the last
   error;
-- **collection stalled**: one of its rounds is in `requires_staff_attention` for a reason other
-  than the above.
+- **collection stalled**: one of its rounds is in `requires_staff_attention`.
 
 A session in `requires_staff_attention` for which no reason can be derived SHALL still be listed,
 with an unknown reason. An alert that cannot explain itself is still an alert.
@@ -28,6 +28,11 @@ Sessions in any other state SHALL NOT be listed.
 
 - **WHEN** an approved payment for a lapsed reservation is credited to a session's prepaid balance
 - **THEN** that table is listed with reason "money not placed" and the credited amount
+
+#### Scenario: A refund on its way
+
+- **WHEN** a refund for the whole credited amount is recorded but still `pending`
+- **THEN** the reason is still listed, showing the refund as pending
 
 #### Scenario: The kitchen never received an order
 
@@ -85,3 +90,20 @@ credited to the session.
 
 - **WHEN** a request for alerts arrives without the staff credential
 - **THEN** it is refused with an authentication error
+
+### Requirement: An alert clears when its causes are resolved
+
+After a staff action, if the session it concerns is `requires_staff_attention` and no reason
+remains, the session SHALL return to `open`. A session that still has a reason SHALL stay
+flagged, and an automatic event that creates a new reason SHALL flag it again.
+
+#### Scenario: The late payment was returned
+
+- **WHEN** the only reason a table was flagged is a credited payment, and staff mark its refund
+  `completed`
+- **THEN** the session is `open` and the table disappears from the alerts
+
+#### Scenario: One of two problems solved
+
+- **WHEN** a table has a credited payment and a failed delivery, and staff retry the delivery
+- **THEN** the table stays listed with the money reason only
