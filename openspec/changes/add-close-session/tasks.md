@@ -29,5 +29,5 @@
 ## 5. Docs and verification
 
 - [x] 5.1 README and `docs/estado-actual.md` (option 3 done; limitations: no reopen, no cash).
-- [ ] 5.2 `npm run test:all` green; `npm run audit` on the demo database green after migrating.
+- [x] 5.2 `npm run test:all` green; `npm run audit` on the demo database green after migrating.
 - [ ] 5.3 Live check with the Wompi sandbox on an `open_tab` table (switch the seed venue's mode for the demo): two phones order two rounds each, ask for the bill, each pays "lo mío" in one checkout, the table closes; then a second table leaves unpaid and staff write it off.
