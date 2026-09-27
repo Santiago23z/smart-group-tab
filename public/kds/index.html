@@ -32,9 +32,55 @@
       <header><h2>Mesas que necesitan a alguien</h2></header>
       <p id="no-alerts" class="muted empty" hidden>Todo en orden.</p>
       <ul id="alert-list"></ul>
+
+      <header class="sub"><h2>Cobros abiertos</h2></header>
+      <p id="no-collections" class="muted empty" hidden>Ninguna ronda esperando pago.</p>
+      <ul id="collection-list"></ul>
     </aside>
   </div>
 </main>
+
+<p id="notice" class="notice" hidden></p>
+
+<!-- Devolver: la plata se devuelve a mano; aquí solo se registra. -->
+<dialog id="refund-dialog">
+  <form method="dialog" id="refund-form">
+    <h2>Registrar devolución</h2>
+    <p class="muted" id="refund-context"></p>
+    <label>Cómo se devuelve
+      <select name="kind">
+        <option value="refunded">Devolución (transferencia, Nequi, efectivo)</option>
+        <option value="reversed">Reversión del cobro</option>
+      </select>
+    </label>
+    <label>Monto
+      <input name="amount" type="number" inputmode="numeric" min="1" step="1" required>
+    </label>
+    <label>Motivo
+      <input name="reason" required maxlength="200" placeholder="Ej.: pagó dos veces">
+    </label>
+    <label>Referencia (opcional)
+      <input name="reference" maxlength="100" placeholder="Nº de transferencia o recibo">
+    </label>
+    <p class="muted">Queda <strong>pendiente</strong> hasta que marques que la plata llegó.</p>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" data-close>Cancelar</button>
+      <button type="submit">Registrar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirmación genérica para acciones que no se deshacen. -->
+<dialog id="confirm-dialog">
+  <form method="dialog">
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-body"></p>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" data-close>No</button>
+      <button type="submit" class="danger" id="confirm-yes"></button>
+    </div>
+  </form>
+</dialog>
 
 <script type="module" src="/kds/kds.js"></script>
 </body>

@@ -47,6 +47,19 @@ const ACTIVE_TICKETS = `
     from kitchen_tickets k
    where k.done_at is null`
 
+// Staff actions: path pattern -> the RPC it runs and how to read its arguments.
+// Every one answers {status, reason?}; a refusal is 409, an unknown target 404.
+const ACTIONS = [
+  [/^\/kds\/api\/rounds\/([^/]+)\/cancel$/, 'staff_cancel_round', () => []],
+  [/^\/kds\/api\/rounds\/([^/]+)\/resume$/, 'staff_resume_round', () => []],
+  [/^\/kds\/api\/reservations\/([^/]+)\/release$/, 'staff_release_reservation', () => []],
+  [/^\/kds\/api\/dispatches\/([^/]+)\/retry$/, 'staff_retry_dispatch', () => []],
+  [/^\/kds\/api\/refunds\/([^/]+)\/status$/, 'staff_set_refund_status', (b) => [b.status ?? null]],
+]
+
+const answer = (r) =>
+  r.status !== 'rejected' ? 200 : r.reason?.startsWith('unknown_') ? 404 : 409
+
 async function readBody(req) {
   const chunks = []
   for await (const chunk of req) chunks.push(chunk)
@@ -104,13 +117,14 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
         if (!hasBearer(req.headers, staffToken)) return reply(401, { error: 'staff_only' })
 
         if (req.method === 'GET' && url.pathname === '/kds/api/state') {
-          const [tickets, alerts] = await Promise.all([
+          const [tickets, alerts, collections] = await Promise.all([
             one(ACTIVE_TICKETS),
             one(`select staff_alerts(make_interval(mins => $1::int)) as r`, [stallMinutes]),
+            one(`select staff_collections() as r`),
           ])
           // The screen times tickets against the server's clock, not the
           // tablet's, which nobody in a kitchen will ever set.
-          return reply(200, { now: new Date().toISOString(), tickets, alerts })
+          return reply(200, { now: new Date().toISOString(), tickets, alerts, collections })
         }
 
         const done = /^\/kds\/api\/tickets\/([^/]+)\/done$/.exec(url.pathname)
@@ -128,6 +142,36 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
           } catch (err) {
             if (err.code === '23503') return reply(404, { error: 'unknown_session' })
             throw err
+          }
+        }
+
+        if (req.method === 'POST') {
+          let body
+          try {
+            const raw = await readBody(req)
+            body = raw ? JSON.parse(raw) : {}
+          } catch {
+            return reply(400, { error: 'not_json' })
+          }
+
+          if (url.pathname === '/kds/api/refunds') {
+            if (!UUID.test(body.contribution_id ?? '')) return reply(400, { error: 'bad_contribution' })
+            if (!Number.isSafeInteger(body.amount)) return reply(400, { error: 'bad_amount' })
+            const r = await one(`select staff_record_refund($1, $2, $3::bigint, $4, $5) as r`, [
+              body.contribution_id, body.kind ?? null, body.amount, body.reason ?? null,
+              body.external_reference ?? null,
+            ])
+            return reply(answer(r), r)
+          }
+
+          for (const [pattern, fn, args] of ACTIONS) {
+            const m = pattern.exec(url.pathname)
+            if (!m) continue
+            if (!UUID.test(m[1])) return reply(400, { error: 'bad_id' })
+            const extra = args(body)
+            const params = [m[1], ...extra].map((_, i) => `$${i + 1}`).join(', ')
+            const r = await one(`select ${fn}(${params}) as r`, [m[1], ...extra])
+            return reply(answer(r), r)
           }
         }
 

@@ -117,3 +117,54 @@ button:disabled { opacity: .5; cursor: default; }
 .alert-table { font-weight: 800; font-size: 1.3rem; }
 .alert ul { margin: 0; padding-left: 1.1rem; }
 .ack-note { color: var(--muted); font-size: .9rem; }
+
+/* Staff actions ----------------------------------------------------------- */
+.alerts > header.sub { margin-top: 1.6rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.actions button { padding: .55rem .8rem; font-size: .95rem; }
+button.danger { background: var(--err); color: #1a0805; }
+
+.refund { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .95rem; }
+.refund .state { color: var(--warn); font-weight: 700; }
+.refund .state.done { color: var(--ok); }
+
+#collection-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .8rem; }
+.collection {
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  padding: .8rem;
+  display: grid;
+  gap: .5rem;
+}
+.collection.stalled { border-color: var(--warn); }
+.collection-head { font-weight: 800; }
+.holds { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.holds li { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: .95rem; }
+
+dialog {
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.4rem;
+  width: min(30rem, 92vw);
+}
+dialog::backdrop { background: rgb(0 0 0 / .6); }
+dialog form { display: grid; gap: .9rem; }
+dialog label { display: grid; gap: .3rem; font-weight: 600; }
+dialog input, dialog select {
+  font: inherit;
+  padding: .6rem .7rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+}
+.dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; }
+
+.notice {
+  position: fixed; left: 50%; bottom: 1.4rem; transform: translateX(-50%);
+  margin: 0; padding: .8rem 1.2rem; border-radius: 10px;
+  background: var(--surface-2); border: 2px solid var(--warn); font-weight: 700;
+  max-width: 90vw;
+}

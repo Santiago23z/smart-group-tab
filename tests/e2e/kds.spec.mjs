@@ -21,8 +21,8 @@ const pool = new pg.Pool({
 
 test.afterAll(async () => { await pool.end(); await closePool() })
 
-/** A table with a paid round of two dishes, released, its outbox rows waiting. */
-async function paidRound(name) {
+/** A table with a round of two dishes in collection, nobody holding anything yet. */
+async function openRound(name) {
   const qr = await freshTable(name)
   const [{ id: tableId, label }] = await sql(`select id, label from tables where qr_token = $1`, [qr])
   const [{ id: sessionId }] = await sql(
@@ -54,9 +54,15 @@ async function paidRound(name) {
     await db.query('rollback').catch(() => {})
     throw err
   } finally { db.release() }
-  await sql(`update rounds set status = 'paid_and_dispatched', dispatched_at = now() where id = $1`, [roundId])
-  await sql(`insert into dispatches (round_id, channel) values ($1, 'kds'), ($1, 'print')`, [roundId])
-  return { roundId, sessionId, label }
+  return { roundId, sessionId, participantId, label }
+}
+
+/** The same, paid and released, its outbox rows waiting. */
+async function paidRound(name) {
+  const r = await openRound(name)
+  await sql(`update rounds set status = 'paid_and_dispatched', dispatched_at = now() where id = $1`, [r.roundId])
+  await sql(`insert into dispatches (round_id, channel) values ($1, 'kds'), ($1, 'print')`, [r.roundId])
+  return r
 }
 
 /** Deliver this round, and only this round, the way the worker would. */
@@ -129,4 +135,83 @@ test('a table whose order never reached the kitchen is shown with its reason', a
 
   const [s] = await sql(`select status from sessions where id = $1`, [sessionId])
   expect(s.status).toBe('requires_staff_attention')
+})
+
+// ---------------------------------------------------------------------------
+// Staff actions
+// ---------------------------------------------------------------------------
+const rpc = async (fn, ...args) =>
+  (await sql(`select ${fn}(${args.map((_, i) => `$${i + 1}`).join(', ')}) as r`, args))[0].r
+
+/** The round paid twice: the second payment is credit and the table is flagged. */
+async function paidTwice(name) {
+  const r = await openRound(name)
+  const claim = await rpc('reserve_contribution', r.roundId, r.participantId, 'remaining', `e2e-${Math.random()}`)
+  for (const n of [1, 2]) {
+    await rpc('confirm_webhook', 'wompi', `e2e-${n}-${Math.random()}`, claim.psp_reference, 'approved', claim.order_amount)
+  }
+  return { ...r, amount: Number(claim.order_amount) }
+}
+
+test('a double payment is refunded from the screen, and the table leaves the alerts', async ({ page }) => {
+  const { sessionId, amount } = await paidTwice('kds-refund')
+  await openScreen(page)
+  const alert = page.locator(`.alert[data-session="${sessionId}"]`)
+  await expect(alert).toContainText('saldo a favor', { timeout: 8000 })
+
+  await alert.locator('button', { hasText: 'Devolver' }).click()
+  const dialog = page.locator('#refund-dialog')
+  await expect(dialog).toBeVisible()
+  await expect(dialog.locator('input[name="amount"]')).toHaveValue(String(amount))
+  await dialog.locator('input[name="reason"]').fill('Pagó dos veces')
+  await dialog.locator('input[name="reference"]').fill('NEQUI-77')
+  await dialog.locator('button[type="submit"]').click()
+
+  // Recorded, but money on its way back is not back: the alert stays.
+  const refund = alert.locator('.refund')
+  await expect(refund).toContainText('pendiente', { timeout: 8000 })
+  const [bal] = await sql(`select prepaid_balance from sessions where id = $1`, [sessionId])
+  expect(Number(bal.prepaid_balance)).toBe(0)
+
+  await refund.getByRole('button', { name: 'Llegó', exact: true }).click()
+  await expect(alert).toHaveCount(0, { timeout: 8000 })
+  const [s] = await sql(`select status from sessions where id = $1`, [sessionId])
+  expect(s.status).toBe('open')
+})
+
+test('cancelling a round asks first, and "No" sends nothing', async ({ page }) => {
+  const { roundId, label } = await openRound('kds-cancel')
+  await openScreen(page)
+  const card = page.locator(`.collection[data-round="${roundId}"]`)
+  await expect(card).toContainText(label, { timeout: 8000 })
+  await expect(card).toContainText('Falta $30.000 de $30.000')
+
+  await card.locator('button', { hasText: 'Cancelar ronda' }).click()
+  await expect(page.locator('#confirm-dialog')).toBeVisible()
+  await expect(page.locator('#confirm-title')).toContainText(label)
+  await page.locator('#confirm-dialog button', { hasText: 'No' }).click()
+  await expect(page.locator('#confirm-dialog')).toBeHidden()
+  expect((await sql(`select status from rounds where id = $1`, [roundId]))[0].status).toBe('locked_for_payment')
+
+  await card.locator('button', { hasText: 'Cancelar ronda' }).click()
+  await page.locator('#confirm-yes').click()
+  await expect(card).toHaveCount(0, { timeout: 8000 })
+  expect((await sql(`select status from rounds where id = $1`, [roundId]))[0].status).toBe('cancelled')
+})
+
+test('a failed delivery is retried from its alert', async ({ page }) => {
+  const { roundId, sessionId } = await paidRound('kds-retry')
+  await sql(`update dispatches set status = 'failed', attempts = 8, last_error = 'HTTP 503'
+              where round_id = $1 and channel = 'kds'`, [roundId])
+  await sql(`update dispatches set status = 'delivered', delivered_at = now()
+              where round_id = $1 and channel = 'print'`, [roundId])
+  await sql(`update sessions set status = 'requires_staff_attention' where id = $1`, [sessionId])
+
+  await openScreen(page)
+  const alert = page.locator(`.alert[data-session="${sessionId}"]`)
+  await alert.locator('button', { hasText: 'Reintentar envío' }).click({ timeout: 8000 })
+  await expect(alert).toHaveCount(0, { timeout: 8000 })
+
+  const [d] = await sql(`select status, attempts from dispatches where round_id = $1 and channel = 'kds'`, [roundId])
+  expect([d.status, d.attempts]).toEqual(['pending', 0])
 })

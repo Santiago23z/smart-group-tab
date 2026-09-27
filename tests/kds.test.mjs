@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { makePool, createFixture } from './helpers.mjs'
+import { makePool, createFixture, reserve, confirmWebhook } from './helpers.mjs'
 import { checkDelivery } from '../src/kds/ingest.mjs'
 import { createKdsServer } from '../src/kds/app.mjs'
 import { drain } from '../src/worker/run.mjs'
@@ -221,6 +221,95 @@ test('the kitchen screen is for staff, and carries no money', async (t) => {
     const res = await fetch(`${kds.base}/kds`)
     assert.equal(res.status, 200)
     assert.match(res.headers.get('content-type'), /html/)
+  })
+})
+
+test('staff act from the kitchen screen', async (t) => {
+  const kds = await startKds()
+  t.after(() => kds.close())
+  const post = (path, body) => kds.staff(path, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}),
+  })
+
+  /** A table whose round was paid twice: the second payment is credit. */
+  async function credited() {
+    const fx = await createFixture(pool, { participants: 1, items: [{ price: 12_000 }] })
+    const r = await reserve(pool, { roundId: fx.roundId, participantId: fx.participantIds[0], mode: 'remaining', key: `k-${Math.random()}` })
+    const tag = Math.random()
+    await confirmWebhook(pool, { eventId: `k1-${tag}`, reference: r.psp_reference, amount: r.order_amount })
+    const second = await confirmWebhook(pool, { eventId: `k2-${tag}`, reference: r.psp_reference, amount: r.order_amount })
+    return { ...fx, creditId: second.contribution_id, reference: r.psp_reference }
+  }
+
+  await t.test('the state carries open collections, without payment references', async () => {
+    const fx = await createFixture(pool, { participants: 1, items: [{ price: 9_000 }] })
+    const r = await reserve(pool, { roundId: fx.roundId, participantId: fx.participantIds[0], mode: 'remaining', key: `k-${Math.random()}` })
+    const state = await (await kds.staff('/kds/api/state')).json()
+    const mine = state.collections.find((c) => c.round_id === fx.roundId)
+    assert.equal(Number(mine.outstanding), 9_000)
+    assert.equal(mine.reservations[0].nickname, 'p0')
+    assert.doesNotMatch(JSON.stringify(state), new RegExp(r.psp_reference))
+    assert.doesNotMatch(JSON.stringify(state), /psp_reference|webhook|transaction/i)
+  })
+
+  await t.test('a refund goes through, and its alert clears when completed', async () => {
+    const fx = await credited()
+    const rec = await post('/kds/api/refunds', {
+      contribution_id: fx.creditId, kind: 'refunded', amount: 12_000, reason: 'Pagó dos veces', external_reference: 'N-1',
+    })
+    assert.equal(rec.status, 200)
+    const { refund_id: refundId } = await rec.json()
+
+    const table = (s) => s.alerts.tables.find((a) => a.session_id === fx.sessionId)
+    const pending = table(await (await kds.staff('/kds/api/state')).json())
+    assert.equal(pending.reasons[0].refunds[0].status, 'pending')
+
+    assert.equal((await post(`/kds/api/refunds/${refundId}/status`, { status: 'completed' })).status, 200)
+    assert.equal(table(await (await kds.staff('/kds/api/state')).json()), undefined)
+  })
+
+  await t.test('a refused action answers 409 with its reason', async () => {
+    const fx = await credited()
+    const res = await post('/kds/api/refunds', { contribution_id: fx.creditId, kind: 'refunded', amount: 99_999, reason: 'x' })
+    assert.equal(res.status, 409)
+    assert.equal((await res.json()).reason, 'exceeds_payment')
+  })
+
+  await t.test('round, reservation and dispatch actions', async () => {
+    const fx = await createFixture(pool, { participants: 2, items: [{ price: 9_000 }] })
+    const r = await reserve(pool, { roundId: fx.roundId, participantId: fx.participantIds[0], mode: 'remaining', key: `k-${Math.random()}` })
+    assert.equal((await (await post(`/kds/api/reservations/${r.reservation_id}/release`)).json()).status, 'released')
+    assert.equal((await (await post(`/kds/api/rounds/${fx.roundId}/cancel`)).json()).status, 'cancelled')
+    assert.equal((await post(`/kds/api/rounds/${fx.roundId}/resume`)).status, 409)
+
+    const rel = await releasedRound()
+    const { rows: [d] } = await pool.query(
+      `update dispatches set status = 'failed', attempts = 8, next_attempt_at = now() + interval '1 day'
+        where round_id = $1 and channel = 'kds' returning id`, [rel.roundId])
+    assert.equal((await (await post(`/kds/api/dispatches/${d.id}/retry`)).json()).status, 'retrying')
+  })
+
+  await t.test('unknown and malformed targets', async () => {
+    const unknown = '00000000-0000-4000-8000-00000000beef'
+    for (const path of [`/kds/api/rounds/${unknown}/cancel`, `/kds/api/reservations/${unknown}/release`,
+                        `/kds/api/dispatches/${unknown}/retry`, `/kds/api/refunds/${unknown}/status`]) {
+      assert.equal((await post(path, { status: 'completed' })).status, 404, path)
+    }
+    assert.equal((await post('/kds/api/rounds/not-a-uuid/cancel')).status, 400)
+    assert.equal((await post('/kds/api/refunds', { contribution_id: 'x', amount: 1, kind: 'refunded', reason: 'r' })).status, 400)
+    assert.equal((await post('/kds/api/refunds', { contribution_id: unknown, amount: 1.5, kind: 'refunded', reason: 'r' })).status, 400)
+  })
+
+  await t.test('no staff token, no action — and the dispatch token is not one', async () => {
+    const fx = await createFixture(pool, { participants: 1, items: [{ price: 9_000 }] })
+    for (const auth of [undefined, `Bearer ${DISPATCH}`]) {
+      const res = await fetch(`${kds.base}/kds/api/rounds/${fx.roundId}/cancel`, {
+        method: 'POST', headers: auth ? { authorization: auth } : {},
+      })
+      assert.equal(res.status, 401)
+    }
+    const { rows: [round] } = await pool.query(`select status from rounds where id = $1`, [fx.roundId])
+    assert.equal(round.status, 'locked_for_payment')
   })
 })
 

@@ -159,3 +159,68 @@ test('a new incident at an acknowledged table un-acknowledges it', async () => {
   assert.equal(a.acknowledged_at, null)
   assert.equal(a.reasons.length, 2)
 })
+
+// ---------------------------------------------------------------------------
+// Alerts clear themselves when staff resolve their causes.
+// ---------------------------------------------------------------------------
+const call = async (fn, ...args) => {
+  const params = args.map((_, i) => `$${i + 1}`).join(', ')
+  return (await pool.query(`select ${fn}(${params}) as r`, args)).rows[0].r
+}
+const sessionStatus = async (id) =>
+  (await pool.query(`select status::text from sessions where id = $1`, [id])).rows[0].status
+
+test('a pending refund is shown on the money reason, which stays until it completes', async () => {
+  const f = await paidTwice()
+  const [money] = (await alertFor(f.sessionId)).reasons
+  const refund = await call('staff_record_refund', money.contribution_id, 'refunded', f.amount, 'Pagó dos veces')
+
+  const [still] = (await alertFor(f.sessionId)).reasons
+  assert.equal(still.kind, 'money_not_placed', 'money on its way back is not back')
+  assert.equal(still.refunds.length, 1)
+  assert.equal(still.refunds[0].status, 'pending')
+
+  await call('staff_set_refund_status', refund.refund_id, 'completed')
+  assert.equal(await alertFor(f.sessionId), undefined, 'the table leaves the alerts')
+  assert.equal(await sessionStatus(f.sessionId), 'open')
+})
+
+test('a partial refund does not clear the money reason', async () => {
+  const f = await paidTwice()
+  const [money] = (await alertFor(f.sessionId)).reasons
+  const refund = await call('staff_record_refund', money.contribution_id, 'refunded', f.amount - 1000, 'parte')
+  await call('staff_set_refund_status', refund.refund_id, 'completed')
+  assert.equal((await alertFor(f.sessionId)).reasons[0].kind, 'money_not_placed')
+  assert.equal(await sessionStatus(f.sessionId), 'requires_staff_attention')
+})
+
+test('a stalled round that also holds credit is listed as both', async () => {
+  const f = await createFixture(pool, { participants: 1, items: [{ price: 10_000 }] })
+  const r = await reserve(pool, { roundId: f.roundId, participantId: f.participantIds[0], mode: 'remaining', key: `b-${Math.random()}` })
+  const odd = await confirmWebhook(pool, { eventId: `odd-${Math.random()}`, reference: r.psp_reference, amount: 1000 })
+  assert.equal(odd.reason, 'amount_mismatch')
+
+  const kinds = (await alertFor(f.sessionId)).reasons.map((x) => x.kind).sort()
+  assert.deepEqual(kinds, ['collection_stalled', 'money_not_placed'])
+})
+
+test('solving one of two problems keeps the table listed with the other', async () => {
+  // Credit from a duplicate payment, and the same round's kitchen delivery failed.
+  const f = await paidTwice()
+  const { rows: [d] } = await pool.query(
+    `update dispatches set status = 'failed', attempts = 8, last_error = 'HTTP 503'
+      where round_id = $1 and channel = 'kds' returning id`, [f.roundId])
+
+  await call('staff_retry_dispatch', d.id)
+
+  const a = await alertFor(f.sessionId)
+  assert.deepEqual(a.reasons.map((x) => x.kind), ['money_not_placed'])
+  assert.equal(await sessionStatus(f.sessionId), 'requires_staff_attention')
+})
+
+test('retrying the only failed delivery clears the table', async () => {
+  const f = await failedDelivery()
+  await call('staff_retry_dispatch', f.dispatchId)
+  assert.equal(await alertFor(f.sessionId), undefined)
+  assert.equal(await sessionStatus(f.sessionId), 'open')
+})

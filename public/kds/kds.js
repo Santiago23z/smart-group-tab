@@ -39,6 +39,62 @@ async function api(path, init = {}) {
   return res.json()
 }
 
+/** A staff action. A refusal comes back as {status:'rejected', reason}, to be shown. */
+async function act(path, body) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
+  })
+  if (res.status === 401) {
+    localStorage.removeItem(TOKEN_KEY)
+    showLocked()
+    return { status: 'rejected', reason: 'staff_only' }
+  }
+  return res.json().catch(() => ({ status: 'rejected', reason: `http_${res.status}` }))
+}
+
+const REFUSALS = {
+  not_credited: 'Ese pago se usó para comida: no se puede devolver desde aquí.',
+  exceeds_payment: 'Es más de lo que se pagó.',
+  exceeds_balance: 'La mesa ya no tiene ese saldo a favor.',
+  reason_required: 'Escribí el motivo.',
+  invalid_amount: 'El monto no es válido.',
+  refund_not_pending: 'Esa devolución ya no está pendiente.',
+  round_not_cancellable: 'La ronda ya no se puede cancelar: cambió de estado.',
+  round_has_payments: 'Alguien ya pagó parte de esta ronda: no se puede cancelar.',
+  round_not_stalled: 'La ronda ya no está trabada.',
+  reservation_not_live: 'Esa reserva ya venció o ya se pagó.',
+  dispatch_not_failed: 'Ese envío ya no está fallido.',
+}
+
+function notice(text) {
+  const n = $('notice')
+  n.textContent = text
+  n.hidden = false
+  clearTimeout(notice.timer)
+  notice.timer = setTimeout(() => (n.hidden = true), 5000)
+}
+
+/** Run an action; on refusal say why. Either way, show the fresh state. */
+async function run(path, body) {
+  const r = await act(path, body)
+  if (r.status === 'rejected') notice(REFUSALS[r.reason] ?? `No se pudo (${r.reason}).`)
+  await refresh()
+  return r
+}
+
+/** Ask before doing something that cannot be undone. Resolves true on "yes". */
+function confirmAction({ title, body, yes }) {
+  const d = $('confirm-dialog')
+  $('confirm-title').textContent = title
+  $('confirm-body').textContent = body
+  $('confirm-yes').textContent = yes
+  d.returnValue = ''
+  d.showModal()
+  return new Promise((resolve) => d.addEventListener('close', () => resolve(d.returnValue === 'yes'), { once: true }))
+}
+
 function showLocked() {
   $('kds').hidden = true
   $('locked').hidden = false
@@ -51,7 +107,7 @@ const el = (tag, attrs = {}, ...children) => {
     else if (k.startsWith('on')) node.addEventListener(k.slice(2), v)
     else node.setAttribute(k, v)
   }
-  for (const c of children) if (c != null) node.append(c)
+  for (const c of children) if (c != null && c !== false) node.append(c)
   return node
 }
 
@@ -117,7 +173,7 @@ function renderAlerts(alerts) {
   $('alert-list').replaceChildren(...tables.map((a) =>
     el('li', { class: `alert${a.acknowledged_at ? ' acked' : ''}`, 'data-session': a.session_id },
       el('span', { class: 'alert-table' }, a.table),
-      el('ul', {}, ...a.reasons.map((r) => el('li', {}, describe(r)))),
+      el('ul', {}, ...a.reasons.map((r) => el('li', { 'data-kind': r.kind }, describe(r), reasonActions(a, r)))),
       a.acknowledged_at
         ? el('span', { class: 'ack-note' },
             `Visto (${new Date(a.acknowledged_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}) — sigue sin resolver.`)
@@ -131,6 +187,108 @@ function renderAlerts(alerts) {
           }, 'Visto'))))
 }
 
+const REFUND_STATE = { pending: 'pendiente', completed: 'completada' }
+
+/** The buttons that resolve one reason. */
+function reasonActions(table, reason) {
+  if (reason.kind === 'money_not_placed') {
+    const committed = reason.refunds.reduce((sum, f) => sum + Number(f.amount), 0)
+    const left = Number(reason.amount) - committed
+    return el('div', { class: 'actions' },
+      ...reason.refunds.map((f) => el('div', { class: 'refund', 'data-refund': f.id },
+        `Devolución ${money(f.amount)} — `,
+        el('span', { class: `state${f.status === 'completed' ? ' done' : ''}` }, REFUND_STATE[f.status] ?? f.status),
+        f.status === 'pending' && el('button', {
+          onclick: () => run(`/kds/api/refunds/${f.id}/status`, { status: 'completed' }),
+        }, 'Llegó'),
+        f.status === 'pending' && el('button', {
+          class: 'secondary',
+          onclick: () => run(`/kds/api/refunds/${f.id}/status`, { status: 'rejected' }),
+        }, 'No llegó'))),
+      left > 0 && el('button', { onclick: () => openRefund(table, reason, left) }, 'Devolver'))
+  }
+  if (reason.kind === 'delivery_failed') {
+    return el('div', { class: 'actions' },
+      el('button', { onclick: () => run(`/kds/api/dispatches/${reason.dispatch_id}/retry`) }, 'Reintentar envío'))
+  }
+  if (reason.kind === 'collection_stalled') {
+    return el('div', { class: 'actions' },
+      el('button', { onclick: () => run(`/kds/api/rounds/${reason.round_id}/resume`) }, 'Reanudar cobro'),
+      el('button', { class: 'danger', onclick: () => cancelRound(table.table, reason.round_number, reason.round_id) },
+        'Cancelar ronda'))
+  }
+  return null
+}
+
+let refundTarget = null
+
+function openRefund(table, reason, left) {
+  const max = Math.min(left, Number(table.prepaid_balance))
+  refundTarget = reason.contribution_id
+  const form = $('refund-form')
+  form.reset()
+  form.amount.value = String(max)
+  form.amount.max = String(max)
+  $('refund-context').textContent =
+    `${table.table}: ${money(reason.amount)} quedó como saldo a favor. ` +
+    `Saldo disponible de la mesa: ${money(table.prepaid_balance)}.`
+  $('refund-dialog').showModal()
+}
+
+$('refund-form').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  const form = e.currentTarget
+  $('refund-dialog').close()
+  await run('/kds/api/refunds', {
+    contribution_id: refundTarget,
+    kind: form.kind.value,
+    amount: Number(form.amount.value),
+    reason: form.reason.value,
+    external_reference: form.reference.value || null,
+  })
+})
+
+for (const btn of document.querySelectorAll('dialog [data-close]')) {
+  btn.addEventListener('click', () => btn.closest('dialog').close())
+}
+$('confirm-dialog').querySelector('form').addEventListener('submit', (e) => {
+  e.preventDefault()
+  $('confirm-dialog').close('yes')
+})
+
+async function cancelRound(table, roundNumber, roundId, holds = 0) {
+  const ok = await confirmAction({
+    title: `¿Cancelar la ronda ${roundNumber} de ${table}?`,
+    body: 'No se envía nada a la cocina' +
+      (holds ? ` y se liberan ${holds} reserva${holds === 1 ? '' : 's'}` : '') +
+      '. Si alguien paga después, la plata queda como saldo a favor de la mesa.',
+    yes: 'Sí, cancelar',
+  })
+  if (ok) await run(`/kds/api/rounds/${roundId}/cancel`)
+}
+
+const hhmm = (iso) => new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+
+function renderCollections(collections) {
+  $('no-collections').hidden = collections.length > 0
+  $('collection-list').replaceChildren(...collections.map((c) => {
+    const stalled = c.status === 'requires_staff_attention'
+    return el('li', { class: `collection${stalled ? ' stalled' : ''}`, 'data-round': c.round_id },
+      el('span', { class: 'collection-head' }, `${c.table} · Ronda ${c.round_number}`),
+      el('span', {}, `Falta ${money(c.outstanding)} de ${money(c.total)}${stalled ? ' — trabada' : ''}`),
+      c.reservations.length > 0 && el('ul', { class: 'holds' }, ...c.reservations.map((h) =>
+        el('li', { 'data-reservation': h.id },
+          el('span', {}, `${h.nickname} · ${money(h.amount)} · hasta ${hhmm(h.expires_at)}`),
+          el('button', { class: 'secondary', onclick: () => run(`/kds/api/reservations/${h.id}/release`) }, 'Liberar')))),
+      el('div', { class: 'actions' },
+        stalled && el('button', { onclick: () => run(`/kds/api/rounds/${c.round_id}/resume`) }, 'Reanudar cobro'),
+        el('button', {
+          class: 'danger',
+          onclick: () => cancelRound(c.table, c.round_number, c.round_id, c.reservations.length),
+        }, 'Cancelar ronda')))
+  }))
+}
+
 let inFlight = false
 async function refresh() {
   if (inFlight || !token) return
@@ -142,6 +300,7 @@ async function refresh() {
     $('offline').hidden = true
     renderTickets(state.tickets)
     renderAlerts(state.alerts)
+    renderCollections(state.collections)
   } catch (err) {
     if (err.message !== 'staff_only') $('offline').hidden = false
   } finally {

@@ -27,6 +27,8 @@ construction. That is the whole design.
 | — | State names aligned with CLAUDE.md; first three specs seeded | **147 checks total** |
 | 4 | Dispatch outbox and worker | **verified under concurrency** (26/26 full runs) |
 | 5 | KDS web (orders + read-only staff alerts) | **verified in a browser** (3 specs) |
+| 6 | Wompi reconciliation — lookups on return and every minute | **verified live in the sandbox** |
+| 7 | Staff actions — refund, cancel, resume, release, retry | **verified under concurrency and in a browser** |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
 finished and verified while the ordering half did not exist at all: there were
@@ -38,10 +40,9 @@ was written but called by nothing.
 Still missing before a table can actually eat:
 
 - **`close_session`.** `open_tab` accumulates consumption and nothing settles it
-  at close — the modality has no ending. The strategy doc's §15 question, who
-  covers an unpaid balance on an open tab, is still unanswered as well as unbuilt.
-- **Staff actions** (D2, D17): force dispatch, release reservations, cancel round,
-  record refund. Decided six phases ago, still absent.
+  at close — the modality has no ending. §15 is now answered (the table absorbs
+  an unpaid share; a whole-table walkout is a venue write-off taken by staff) but
+  not built.
 - **Staff accounts.** The kitchen display exists, behind a shared token per
   deployment, and shows every venue on one screen.
 
@@ -386,14 +387,36 @@ exists.
 kitchen wall is the second. It arrives once in the URL hash — never a query
 string, so it never reaches a server log — and moves to `localStorage`.
 
-**Alerts are read-only.** The right-hand panel lists every table in
-`requires_staff_attention` with every reason that applies, derived in SQL by
-`staff_alerts()`: money that could not be placed, a delivery that failed for good,
-a collection that stalled — or "unknown", because an alert that cannot explain
-itself is still an alert. "Visto" records that someone looked; it resolves
-nothing and changes no state. It snapshots the reasons rather than a time, so a
-new incident at an acknowledged table shows up again. Resolving an alert is a
-staff action (D2/D17) and does not exist yet.
+**Alerts, and what staff can do about them.** The right-hand panel lists every
+table in `requires_staff_attention` with every reason that applies, derived in
+SQL by `staff_alerts()`: money that could not be placed, a delivery that failed
+for good, a collection that stalled — or "unknown", because an alert that cannot
+explain itself is still an alert. "Visto" records that someone looked; it
+resolves nothing. It snapshots the reasons rather than a time, so a new incident
+at an acknowledged table shows up again.
+
+Each reason carries the action that resolves it (D2/D17), all `SECURITY
+DEFINER` functions reached only through the staff token:
+
+- *Devolver* records a refund of **credited** money (never money that paid for
+  food). The money goes back by hand; the record starts `pending` and takes the
+  amount out of the table's prepaid balance so it cannot also be spent. "Llegó"
+  completes it; "No llegó" rejects it and puts the balance back.
+- *Reintentar envío* puts a `failed` dispatch back to `pending` with a fresh
+  attempt budget.
+- *Reanudar cobro* moves a stalled round back to `locked_for_payment` — and, if
+  everything was paid while it was flagged, releases it to the kitchen.
+- *Cancelar ronda* (also in "Cobros abiertos") cancels a round with no money
+  applied and releases its holds. A payment that still arrives for it is
+  credited to the table, never applied; the periodic Wompi check keeps looking
+  for such payments until the checkout expires.
+- *Liberar* (in "Cobros abiertos") releases one live hold.
+
+Every action re-checks its preconditions under the same row locks as the payment
+path — round, then session, the order `confirm_webhook` takes — so it can lose a
+race to a payment but never corrupt one (race-tested: cancel vs final payment,
+two refunds on one credit). Each is written to `staff_action_log`. When a table
+has no reason left it goes back to `open` on its own.
 
 A red banner appears when due dispatches have waited longer than
 `KDS_STALL_MINUTES` (default 2): that is a stopped worker, not an idle queue.

@@ -126,10 +126,8 @@ Siete capacidades documentadas en `openspec/specs/`:
 
 ## Lo que falta
 
-- **Cerrar la cuenta de la mesa** (`close_session`). Falta decidir quién cubre lo que no se pagó
-  en una mesa con cuenta abierta.
-- **Acciones del personal:** forzar un envío, liberar reservas, cancelar una ronda, registrar
-  una devolución. Hoy la cocina solo muestra alertas.
+- **Cerrar la cuenta de la mesa** (`close_session`). Ya está decidido quién cubre lo que no se
+  pagó: la mesa; y si se va toda, el restaurante asume la pérdida desde la cocina.
 - **Cuentas del personal y un restaurante por pantalla.** Hoy hay un solo token y la cocina
   muestra todos los restaurantes juntos.
 - **Llaves de Wompi por restaurante.** Hoy toda la plata va a una sola cuenta de Wompi.
@@ -155,12 +153,10 @@ opciones para el siguiente paso, de la más pequeña a la más grande:
      de prueba nuevos.
    - El QR usa el nombre del computador (`.local`) y no la IP, así que el comensal vuelve a la
      mesa después de pagar.
-2. **Acciones del personal en la pantalla de cocina** (mediano). Hoy las alertas solo se ven;
-   una mesa marcada queda marcada para siempre. Faltan botones para:
-   - registrar la devolución de un saldo a favor;
-   - cancelar una ronda;
-   - liberar una reserva trabada;
-   - reintentar un envío a la cocina que falló.
+2. **Acciones del personal en la pantalla de cocina** — hecho el 26 de septiembre. Desde la
+   cocina se puede registrar la devolución de un saldo a favor, cancelar una ronda que nadie
+   pagó, reanudar un cobro trabado, liberar una reserva y reintentar un envío. Las alertas se
+   quitan solas cuando se resuelve su causa. Cada acción queda registrada.
 3. **Cerrar la cuenta de la mesa** (mediano). Bloqueado por una decisión de negocio: en una
    mesa con cuenta abierta, si alguien se va sin pagar su parte, ¿quién la cubre: el resto de
    la mesa, el restaurante o el mesero?
