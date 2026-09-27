@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto'
 
 import { reconcileDue, reconcileTransaction } from '../src/wompi/reconcile.mjs'
 import { handleWompiWebhook } from '../src/wompi/handler.mjs'
-import { confirmWebhook, createFixture, makePool, reserve, roundState } from './helpers.mjs'
+import { addItem, closeRound, confirmWebhook, createFixture, createVenue, joinSession, makePool, reserve, roundState } from './helpers.mjs'
 
 const pool = makePool(8)
 after(() => pool.end())
@@ -297,4 +297,45 @@ test('a decline and a later approval on one reference settle, whatever order Wom
   const state = await roundState(pool, f.roundId)
   assert.equal(state.status, 'paid_and_dispatched')
   assert.equal(state.creditedAmount, 0, 'settled as ordered, not as late credit')
+})
+
+// ---------------------------------------------------------------------------
+// A whole tab paid in one checkout goes through exactly the same lookups.
+// ---------------------------------------------------------------------------
+async function reservedTab() {
+  const venue = await createVenue(pool, { serviceMode: 'open_tab', products: [{ price: 14_000 }, { price: 6_000 }] })
+  const ana = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Ana' })
+  for (const product of venue.menu) {
+    await addItem(pool, { sessionId: ana.session_id, participantId: ana.participant_id, productId: product.id })
+    await closeRound(pool, { sessionId: ana.session_id })
+  }
+  await pool.query(`select request_bill($1, $2)`, [ana.session_id, ana.participant_id])
+  const { rows: [{ r: claim }] } = await pool.query(
+    `select reserve_tab($1, $2, 'remaining', $3, 0) as r`, [ana.session_id, ana.participant_id, `rt-${Math.random()}`])
+  assert.equal(claim.status, 'reserved')
+  return { sessionId: ana.session_id, claim }
+}
+
+const sessionStatus = async (id) =>
+  (await pool.query(`select status::text from sessions where id = $1`, [id])).rows[0].status
+
+test('a tab payment nobody told us about is found by the periodic check, and the table closes', async () => {
+  const t = await reservedTab()
+  await issued(t.claim.reservation_id)
+  const api = fakeWompi({ [t.claim.psp_reference]: [wompiTransaction(t.claim)] })
+
+  await sweep(api)
+
+  assert.equal(await sessionStatus(t.sessionId), 'closed')
+})
+
+test('a tab payment checked on return settles it, and its webhook is then a duplicate', async () => {
+  const t = await reservedTab()
+  const tx = wompiTransaction(t.claim)
+  const result = await reconcileTransaction(pool, tx)
+  assert.equal(result.status, 'settled')
+  assert.equal(result.session_closed, true)
+
+  const late = await handleWompiWebhook({ body: webhookFor(tx), secret: SECRET, pool })
+  assert.equal(late.result.status, 'duplicate_event')
 })

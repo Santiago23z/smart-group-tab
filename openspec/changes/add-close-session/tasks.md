@@ -17,17 +17,17 @@
 
 ## 3. Servers
 
-- [ ] 3.1 Diner API: `POST /api/bill`, `POST /api/reserve-tab`, tab in `/api/state`; `createPaymentIntent` reads the session from the reservation; verify in `tests/checkout.test.mjs` (a tab reservation gets a checkout for its total and its table's return URL) and an API test for the routes.
-- [ ] 3.2 Reconciliation: a tab payment found by the periodic check and by the on-return check settles the tab; verify in `tests/reconcile.test.mjs`.
-- [ ] 3.3 KDS: `open_tables` in state; `POST /kds/api/sessions/:id/bill`, `/write-off`, `/close`; verify in `tests/kds.test.mjs` (staff token only; refusals 409 with reasons).
+- [x] 3.1 Diner API: `POST /api/bill`, `POST /api/reserve-tab`, tab in `/api/state`; `createPaymentIntent` reads the session from the reservation; verify in `tests/checkout.test.mjs` (a tab reservation gets a checkout for its total and its table's return URL) and an API test for the routes.
+- [x] 3.2 Reconciliation: a tab payment found by the periodic check and by the on-return check settles the tab; verify in `tests/reconcile.test.mjs`.
+- [x] 3.3 KDS: `open_tables` in state; `POST /kds/api/sessions/:id/bill`, `/write-off`, `/close`; verify in `tests/kds.test.mjs` (staff token only; refusals 409 with reasons).
 
 ## 4. Screens
 
-- [ ] 4.1 Diner page: "Pedir la cuenta", tab view with "Pagar lo mío" / "Cubrir el resto"; verify with Playwright: open-tab table of two diners asks for the bill, each pays their part, the table closes.
-- [ ] 4.2 Kitchen: "Mesas abiertas" with tab, "Pedir la cuenta", "Asumir pérdida" (confirm + reason), "Cerrar mesa" with reasons; verify with Playwright: write-off closes a departed table; close refused while credit remains.
+- [x] 4.1 Diner page: "Pedir la cuenta", tab view with "Pagar lo mío" / "Cubrir el resto"; verify with Playwright: open-tab table of two diners asks for the bill, each pays their part, the table closes.
+- [x] 4.2 Kitchen: "Mesas abiertas" with tab, "Pedir la cuenta", "Asumir pérdida" (confirm + reason), "Cerrar mesa" with reasons; verify with Playwright: write-off closes a departed table; close refused while credit remains.
 
 ## 5. Docs and verification
 
-- [ ] 5.1 README and `docs/estado-actual.md` (option 3 done; limitations: no reopen, no cash).
+- [x] 5.1 README and `docs/estado-actual.md` (option 3 done; limitations: no reopen, no cash).
 - [ ] 5.2 `npm run test:all` green; `npm run audit` on the demo database green after migrating.
 - [ ] 5.3 Live check with the Wompi sandbox on an `open_tab` table (switch the seed venue's mode for the demo): two phones order two rounds each, ask for the bill, each pays "lo mío" in one checkout, the table closes; then a second table leaves unpaid and staff write it off.

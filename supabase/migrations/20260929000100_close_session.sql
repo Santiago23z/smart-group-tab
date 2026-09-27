@@ -131,9 +131,12 @@ as $$
       select coalesce(jsonb_agg(jsonb_build_object(
                'participant_id', p.id,
                'nickname',       p.nickname,
-               'unpaid',         x.unpaid)
+               'unpaid',         x.unpaid,
+               'held',           x.held)
              order by p.joined_at), '[]'::jsonb)
-        from (select participant_id, sum(owed_amount) as unpaid from tab group by participant_id) x
+        from (select participant_id, sum(owed_amount) as unpaid,
+                     coalesce(sum(owed_amount) filter (where is_share_held(tab.id)), 0) as held
+                from tab group by participant_id) x
         join participants p on p.id = x.participant_id));
 $$;
 

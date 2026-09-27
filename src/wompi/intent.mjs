@@ -37,8 +37,8 @@ export async function createPaymentIntent(pool, { reservationId, config, returnO
             s.currency,
             t.qr_token
        from contribution_reservations r
-       join rounds rd on rd.id = r.round_id
-       join sessions se on se.id = rd.session_id
+       -- Through the session, not the round: a tab reservation has no round.
+       join sessions se on se.id = r.session_id
        join venues s on s.id = se.venue_id
        join tables t on t.id = se.table_id
       where r.id = $1`,

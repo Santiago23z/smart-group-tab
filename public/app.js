@@ -61,6 +61,8 @@ const REASONS = {
   reservation_not_payable: 'Tu reserva venció o ya se pagó. Mirá el saldo y volvé a intentar.',
   unknown_reservation: 'No encontramos tu reserva. Volvé a intentar.',
   wompi_configured: 'Los pagos simulados están apagados: esta mesa cobra con Wompi.',
+  draft_not_empty: 'Primero enviá o quitá lo que está en el carrito.',
+  bill_not_requested: 'Primero pedí la cuenta.',
 }
 const explain = (r) => REASONS[r?.reason] ?? r?.reason ?? 'No se pudo.'
 
@@ -185,7 +187,52 @@ function renderCart(round) {
 
   renderOwed(round)
   renderRoundActions(round)
+  renderBill()
   renderOtherRounds()
+}
+
+// ---------------------------------------------------------------------------
+// The bill: what went to the kitchen unpaid (open tab), paid in one go.
+// ---------------------------------------------------------------------------
+const billRequested = () => Boolean(state?.session.bill_requested_at)
+const tabTotal = () => Number(state?.tab.total ?? 0)
+/** My part of the tab that nobody is holding right now. */
+const myFreeTab = () => {
+  const mine = state.tab.participants.find((p) => p.participant_id === me.participantId)
+  return mine ? Number(mine.unpaid) - Number(mine.held) : 0
+}
+
+function renderBill() {
+  const el = $('bill')
+  if (state.session.status === 'closed') {
+    el.innerHTML = `
+      <div class="banner ok"><strong>Mesa cerrada</strong>
+      <span class="muted">Todo quedó pagado. ¡Gracias!</span></div>
+      <button class="ghost" id="start-over">Empezar una mesa nueva</button>`
+    return
+  }
+
+  if (!billRequested()) {
+    el.innerHTML = state.rounds.some((r) => r.status !== 'draft')
+      ? `<button class="ghost" id="ask-bill">Pedir la cuenta</button>`
+      : ''
+    return
+  }
+
+  el.innerHTML = `
+    <div class="banner"><strong>Cuenta pedida</strong>
+      <span class="muted">${tabTotal() > 0
+        ? 'Ya no se puede pedir más. Cada quien paga lo suyo, o alguien cubre el resto.'
+        : 'No queda nada por pagar.'}</span></div>
+    ${tabTotal() > 0 ? `
+      <div class="owed">
+        ${state.tab.participants.map((p) => `
+          <div class="line">
+            <span>${escape(p.nickname)}${p.participant_id === me.participantId ? ' (vos)' : ''}</span>
+            <span>${money(p.unpaid)}</span>
+          </div>`).join('')}
+        <div class="line total"><span>Falta pagar</span><span>${money(tabTotal())}</span></div>
+      </div>` : ''}`
 }
 
 function renderOwed(round) {
@@ -269,6 +316,11 @@ function renderBar(round) {
   const bar = $('bar')
   const reservation = state.my_reservation
 
+  if (state.session.status === 'closed') {
+    bar.hidden = true
+    return
+  }
+
   if (reservation) {
     bar.hidden = false
     $('bar-label').textContent = 'Reservado para vos'
@@ -277,6 +329,24 @@ function renderBar(round) {
     $('bar-action').dataset.action = 'pay'
     return
   }
+
+  // Once the bill is asked for, the bar pays the tab, not a round.
+  if (billRequested() && tabTotal() > 0) {
+    const mine = myFreeTab()
+    const free = tabTotal() - Number(state.tab.held)
+    if (free <= 0) {
+      bar.hidden = true
+      return
+    }
+    bar.hidden = false
+    $('bar-label').textContent = mine > 0 ? 'Tu parte de la cuenta' : 'Falta de la cuenta'
+    $('bar-amount').textContent = money(mine > 0 ? mine : free)
+    $('bar-action').textContent = mine > 0 ? 'Pagar lo mío' : 'Cubrir el resto'
+    $('bar-action').dataset.action = mine > 0 ? 'my_items' : 'remaining'
+    $('bar-action').dataset.scope = 'tab'
+    return
+  }
+  $('bar-action').dataset.scope = 'round'
 
   if (round?.status !== 'locked_for_payment' || Number(round.outstanding) === 0) {
     bar.hidden = true
@@ -336,6 +406,14 @@ document.addEventListener('click', async (e) => {
       await refresh()
     }
 
+    if (btn.id === 'ask-bill') {
+      const r = await api('/api/bill', { session_id: me.sessionId, participant_id: me.participantId })
+      if (r.status === 'rejected') return toast(explain(r), true)
+      toast(r.closed ? 'Mesa cerrada' : 'Cuenta pedida')
+      await refresh()
+    }
+    if (btn.id === 'start-over') forget('Escaneaste la mesa de nuevo. Elegí tu apodo.')
+
     if (btn.id === 'bar-action') onBarAction()
     if (btn.id === 'sheet-cancel') $('sheet').hidden = true
     if (btn.id === 'sheet-save') await saveSharing()
@@ -381,8 +459,11 @@ function onBarAction() {
   const round = currentRound()
   const reservation = state.my_reservation
 
+  const tab = $('bar-action').dataset.scope === 'tab'
   const amount = reservation
     ? Number(reservation.order_amount)
+    : tab
+      ? $('bar-action').dataset.action === 'my_items' ? myFreeTab() : tabTotal() - Number(state.tab.held)
     : $('bar-action').dataset.action === 'my_items'
       ? round.items.flatMap((i) => i.shares)
           .filter((s) => s.participant_id === me.participantId && !s.held)
@@ -412,12 +493,19 @@ async function confirmPayment() {
 
   // Claim first, with the tip already decided.
   if (!reservation) {
-    const claim = await api('/api/reserve', {
-      round_id: round.id,
-      participant_id: me.participantId,
-      mode: $('bar-action').dataset.action,
-      tip: Number($('tip').value || 0),
-    })
+    const claim = $('bar-action').dataset.scope === 'tab'
+      ? await api('/api/reserve-tab', {
+          session_id: me.sessionId,
+          participant_id: me.participantId,
+          mode: $('bar-action').dataset.action,
+          tip: Number($('tip').value || 0),
+        })
+      : await api('/api/reserve', {
+          round_id: round.id,
+          participant_id: me.participantId,
+          mode: $('bar-action').dataset.action,
+          tip: Number($('tip').value || 0),
+        })
 
     if (claim.status === 'rejected') {
       await refresh()

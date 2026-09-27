@@ -66,7 +66,21 @@ const REFUSALS = {
   round_not_stalled: 'La ronda ya no está trabada.',
   reservation_not_live: 'Esa reserva ya venció o ya se pagó.',
   dispatch_not_failed: 'Ese envío ya no está fallido.',
+  tab_held: 'Alguien está pagando la cuenta en este momento.',
+  nothing_to_write_off: 'No queda nada por asumir.',
+  bill_not_requested: 'Primero pedí la cuenta de esa mesa.',
+  draft_not_empty: 'La mesa tiene platos sin enviar en el carrito.',
 }
+
+const BLOCKERS = {
+  bill_not_requested: 'falta pedir la cuenta',
+  tab_unpaid: 'queda cuenta por pagar',
+  round_in_collection: 'hay una ronda en cobro',
+  balance_left: 'queda saldo a favor por devolver',
+  refund_pending: 'hay una devolución pendiente',
+  alert_open: 'tiene una alerta sin resolver',
+}
+const blockersText = (list) => list.map((b) => BLOCKERS[b] ?? b).join(', ')
 
 function notice(text) {
   const n = $('notice')
@@ -79,7 +93,11 @@ function notice(text) {
 /** Run an action; on refusal say why. Either way, show the fresh state. */
 async function run(path, body) {
   const r = await act(path, body)
-  if (r.status === 'rejected') notice(REFUSALS[r.reason] ?? `No se pudo (${r.reason}).`)
+  if (r.status === 'rejected') {
+    notice(r.reason === 'not_closable'
+      ? `No se puede cerrar: ${blockersText(r.blockers)}.`
+      : REFUSALS[r.reason] ?? `No se pudo (${r.reason}).`)
+  }
   await refresh()
   return r
 }
@@ -289,6 +307,45 @@ function renderCollections(collections) {
   }))
 }
 
+let writeOffTarget = null
+
+function openWriteOff(t) {
+  writeOffTarget = t.session_id
+  $('writeoff-form').reset()
+  $('writeoff-title').textContent = `¿Asumir la pérdida de ${t.table}?`
+  $('writeoff-body').textContent =
+    `Se da por perdida toda la cuenta pendiente: ${money(t.tab.total)}. ` +
+    'No se le cobra a nadie y queda registrado con el motivo.'
+  $('writeoff-dialog').showModal()
+}
+
+$('writeoff-form').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  const reason = e.currentTarget.reason.value
+  $('writeoff-dialog').close()
+  await run(`/kds/api/sessions/${writeOffTarget}/write-off`, { reason })
+})
+
+function renderOpenTables(tables) {
+  $('no-tables').hidden = tables.length > 0
+  $('table-list').replaceChildren(...tables.map((t) => {
+    const asked = Boolean(t.bill_requested_at)
+    const owed = Number(t.tab.total)
+    return el('li', { class: `collection${asked ? ' stalled' : ''}`, 'data-session': t.session_id },
+      el('span', { class: 'collection-head' }, `${t.table}${asked ? ' · cuenta pedida' : ''}`),
+      el('span', {}, owed > 0 ? `Cuenta pendiente: ${money(owed)}` : 'Sin cuenta pendiente'),
+      owed > 0 && el('ul', { class: 'holds' }, ...t.tab.participants.map((p) =>
+        el('li', {}, el('span', {}, `${p.nickname} · ${money(p.unpaid)}`)))),
+      Number(t.prepaid_balance) > 0 && el('span', { class: 'muted' }, `Saldo a favor: ${money(t.prepaid_balance)}`),
+      t.blockers.length > 0 && el('span', { class: 'muted blockers' }, `Para cerrar: ${blockersText(t.blockers)}.`),
+      el('div', { class: 'actions' },
+        !asked && el('button', { class: 'secondary', onclick: () => run(`/kds/api/sessions/${t.session_id}/bill`) },
+          'Pedir la cuenta'),
+        asked && owed > 0 && el('button', { class: 'danger', onclick: () => openWriteOff(t) }, 'Asumir pérdida'),
+        el('button', { onclick: () => run(`/kds/api/sessions/${t.session_id}/close`) }, 'Cerrar mesa')))
+  }))
+}
+
 let inFlight = false
 async function refresh() {
   if (inFlight || !token) return
@@ -301,6 +358,7 @@ async function refresh() {
     renderTickets(state.tickets)
     renderAlerts(state.alerts)
     renderCollections(state.collections)
+    renderOpenTables(state.open_tables)
   } catch (err) {
     if (err.message !== 'staff_only') $('offline').hidden = false
   } finally {

@@ -55,6 +55,9 @@ const ACTIONS = [
   [/^\/kds\/api\/reservations\/([^/]+)\/release$/, 'staff_release_reservation', () => []],
   [/^\/kds\/api\/dispatches\/([^/]+)\/retry$/, 'staff_retry_dispatch', () => []],
   [/^\/kds\/api\/refunds\/([^/]+)\/status$/, 'staff_set_refund_status', (b) => [b.status ?? null]],
+  [/^\/kds\/api\/sessions\/([^/]+)\/bill$/, 'staff_request_bill', () => []],
+  [/^\/kds\/api\/sessions\/([^/]+)\/write-off$/, 'staff_write_off', (b) => [b.reason ?? null]],
+  [/^\/kds\/api\/sessions\/([^/]+)\/close$/, 'staff_close_session', () => []],
 ]
 
 const answer = (r) =>
@@ -117,14 +120,17 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
         if (!hasBearer(req.headers, staffToken)) return reply(401, { error: 'staff_only' })
 
         if (req.method === 'GET' && url.pathname === '/kds/api/state') {
-          const [tickets, alerts, collections] = await Promise.all([
+          const [tickets, alerts, collections, openTables] = await Promise.all([
             one(ACTIVE_TICKETS),
             one(`select staff_alerts(make_interval(mins => $1::int)) as r`, [stallMinutes]),
             one(`select staff_collections() as r`),
+            one(`select staff_open_tables() as r`),
           ])
           // The screen times tickets against the server's clock, not the
           // tablet's, which nobody in a kitchen will ever set.
-          return reply(200, { now: new Date().toISOString(), tickets, alerts, collections })
+          return reply(200, {
+            now: new Date().toISOString(), tickets, alerts, collections, open_tables: openTables,
+          })
         }
 
         const done = /^\/kds\/api\/tickets\/([^/]+)\/done$/.exec(url.pathname)

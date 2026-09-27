@@ -367,3 +367,27 @@ describe('remembering the checkout, and bringing the diner back', () => {
     assert.equal(new URL(intent.checkout_url).searchParams.get('redirect-url'), CONFIG.redirectUrl)
   })
 })
+
+describe('a checkout for a whole tab', () => {
+  test('charges the tab reservation and brings the diner back to their table', async () => {
+    const venue = await createVenue(pool, { serviceMode: 'open_tab', products: [{ price: 18_000 }, { price: 7_000 }] })
+    const ana = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Ana' })
+    for (const product of venue.menu) {
+      await addItem(pool, { sessionId: ana.session_id, participantId: ana.participant_id, productId: product.id })
+      await closeRound(pool, { sessionId: ana.session_id })
+    }
+    await pool.query(`select request_bill($1, $2)`, [ana.session_id, ana.participant_id])
+    const { rows: [{ r: tab }] } = await pool.query(
+      `select reserve_tab($1, $2, 'my_items', $3, 3000) as r`, [ana.session_id, ana.participant_id, `tab-${Math.random()}`])
+    assert.equal(tab.status, 'reserved')
+
+    const intent = await createPaymentIntent(pool, {
+      reservationId: tab.reservation_id, config: CONFIG, returnOrigin: 'https://tab.example.com',
+    })
+    assert.equal(intent.status, 'created')
+    assert.equal(intent.amount_in_cents, (18_000 + 7_000 + 3_000) * 100, 'both rounds and the tip, in one charge')
+    const url = new URL(intent.checkout_url)
+    assert.equal(url.searchParams.get('reference'), tab.psp_reference)
+    assert.equal(url.searchParams.get('redirect-url'), `https://tab.example.com/t/${encodeURIComponent(venue.qrToken)}`)
+  })
+})

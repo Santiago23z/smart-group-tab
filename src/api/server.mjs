@@ -105,7 +105,9 @@ async function tableState(sessionId, participantId) {
     `select jsonb_build_object(
        'session', jsonb_build_object(
          'id', se.id, 'status', se.status, 'service_mode', se.service_mode,
-         'prepaid_balance', se.prepaid_balance),
+         'prepaid_balance', se.prepaid_balance, 'bill_requested_at', se.bill_requested_at),
+       -- What went to the kitchen unpaid, per person. Zero outside open tabs.
+       'tab', tab_summary(se.id),
        'venue', jsonb_build_object('name', v.name, 'currency', v.currency),
        'table', jsonb_build_object('label', t.label),
        'participants', (
@@ -144,7 +146,8 @@ async function tableState(sessionId, participantId) {
        'my_reservation', (
          select to_jsonb(x) from (
            select cr.id, cr.order_amount, cr.tip_amount, cr.status,
-                  cr.expires_at, cr.psp_reference, cr.round_id
+                  cr.expires_at, cr.psp_reference, cr.round_id,
+                  case when cr.round_id is null then 'tab' else 'round' end as kind
              from contribution_reservations cr
             where cr.participant_id = $2 and cr.status = 'active' and cr.expires_at > now()
             order by cr.created_at desc limit 1) x)
@@ -204,6 +207,24 @@ const ROUTES = {
         body.idempotency_key ?? `web-${Date.now()}-${Math.random()}`,
         body.amount ?? null,
         body.share_ids ?? null,
+        body.tip ?? 0,
+      ])
+    ),
+
+  'POST /api/bill': async (body) =>
+    asParticipant(body.participant_id, (c) =>
+      rpc(c, `select request_bill($1,$2) as r`, [body.session_id, body.participant_id])
+    ),
+
+  // The whole tab in one reservation: "my_items" (mine, every round) or
+  // "remaining" (everything still unpaid at the table).
+  'POST /api/reserve-tab': async (body) =>
+    asParticipant(body.participant_id, (c) =>
+      rpc(c, `select reserve_tab($1,$2,$3,$4,$5::bigint) as r`, [
+        body.session_id,
+        body.participant_id,
+        body.mode,
+        body.idempotency_key ?? `web-tab-${Date.now()}-${Math.random()}`,
         body.tip ?? 0,
       ])
     ),

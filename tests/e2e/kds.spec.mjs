@@ -5,7 +5,7 @@
 
 import { test, expect } from '@playwright/test'
 import pg from 'pg'
-import { freshTable, sql, closePool } from './helpers.mjs'
+import { freshTable, freshOpenTabTable, sql, closePool } from './helpers.mjs'
 import { drain } from '../../src/worker/run.mjs'
 import { testDatabaseUrl } from '../../scripts/test-database.mjs'
 
@@ -214,4 +214,61 @@ test('a failed delivery is retried from its alert', async ({ page }) => {
 
   const [d] = await sql(`select status, attempts from dispatches where round_id = $1 and channel = 'kds'`, [roundId])
   expect([d.status, d.attempts]).toEqual(['pending', 0])
+})
+
+// ---------------------------------------------------------------------------
+// Closing tables
+// ---------------------------------------------------------------------------
+/** An open-tab table with one round already in the kitchen, unpaid. */
+async function servedTab(name) {
+  const qr = await freshOpenTabTable(name)
+  const joined = await rpc('open_or_join_session', qr, 'Ana')
+  const [{ id: productId }] = await sql(
+    `select p.id from products p join tables t on t.venue_id = p.venue_id
+      where t.qr_token = $1 and p.name = 'Papas OT'`, [qr])
+  await rpc('add_cart_item', joined.session_id, joined.participant_id, productId, 1, null)
+  await rpc('close_round', joined.session_id, 'as_ordered')
+  const [{ label }] = await sql(`select label from tables where qr_token = $1`, [qr])
+  return { sessionId: joined.session_id, participantId: joined.participant_id, label }
+}
+
+test('a table that left is written off from the screen, and closes', async ({ page }) => {
+  const { sessionId, label } = await servedTab('kds-writeoff')
+  await openScreen(page)
+  const card = page.locator(`#table-list [data-session="${sessionId}"]`)
+  await expect(card).toContainText('Cuenta pendiente: $14.000', { timeout: 8000 })
+  await expect(card).toContainText('falta pedir la cuenta')
+
+  await card.getByRole('button', { name: 'Pedir la cuenta' }).click()
+  await expect(card).toContainText('cuenta pedida', { timeout: 8000 })
+
+  await card.getByRole('button', { name: 'Asumir pérdida' }).click()
+  const dialog = page.locator('#writeoff-dialog')
+  await expect(dialog).toContainText(label)
+  await expect(dialog).toContainText('$14.000')
+  await dialog.locator('input[name="reason"]').fill('Se fueron sin pagar')
+  await dialog.locator('button[type="submit"]').click()
+
+  await expect(card).toHaveCount(0, { timeout: 8000 })
+  const [s] = await sql(`select status from sessions where id = $1`, [sessionId])
+  expect(s.status).toBe('closed')
+  const [w] = await sql(`select amount, reason from write_offs where session_id = $1`, [sessionId])
+  expect([Number(w.amount), w.reason]).toEqual([14000, 'Se fueron sin pagar'])
+})
+
+test('"Cerrar mesa" is refused, with the reason, while credit is left on the table', async ({ page }) => {
+  const { sessionId, participantId } = await servedTab('kds-close')
+  await rpc('request_bill', sessionId, participantId)
+  await sql(`update sessions set prepaid_balance = 5000 where id = $1`, [sessionId])
+  const claim = await rpc('reserve_tab', sessionId, participantId, 'remaining', `e2e-${Math.random()}`, 0)
+  await rpc('confirm_webhook', 'wompi', `e2e-close-${Math.random()}`, claim.psp_reference, 'approved', claim.order_amount)
+
+  await openScreen(page)
+  const card = page.locator(`#table-list [data-session="${sessionId}"]`)
+  await expect(card).toContainText('queda saldo a favor por devolver', { timeout: 8000 })
+  await card.getByRole('button', { name: 'Cerrar mesa' }).click()
+  await expect(page.locator('#notice')).toContainText('No se puede cerrar: queda saldo a favor por devolver')
+
+  const [s] = await sql(`select status from sessions where id = $1`, [sessionId])
+  expect(s.status).toBe('settling')
 })

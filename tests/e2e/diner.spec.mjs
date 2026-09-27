@@ -6,7 +6,7 @@
 // and every one of those 88 stayed green.
 
 import { test, expect } from '@playwright/test'
-import { freshTable, joinAs, order, openCart, openMenu, settled, sql, closePool } from './helpers.mjs'
+import { freshTable, freshOpenTabTable, joinAs, order, openCart, openMenu, settled, sql, closePool } from './helpers.mjs'
 
 test.afterAll(closePool)
 
@@ -411,3 +411,46 @@ for (const [outcome, status, text] of [
     expect(new URL(page.url()).search).toBe('')
   })
 }
+
+// An open tab from start to finish on two phones: two rounds go to the kitchen
+// unpaid, the table asks for the bill, each pays their part in one payment,
+// and the table closes.
+test('an open tab: two rounds, the bill, one payment each, and the table closes', async ({ browser }) => {
+  const qr = await freshOpenTabTable('tab')
+  const a = await (await browser.newContext()).newPage()
+  const b = await (await browser.newContext()).newPage()
+  await joinAs(a, qr, 'Ana')
+  await joinAs(b, qr, 'Beto')
+
+  for (let round = 1; round <= 2; round++) {
+    await order(a, 'Cerveza OT')
+    await order(b, 'Papas OT')
+    await openCart(a)
+    await a.locator('button[data-close="as_ordered"]').tap()
+    await expect(a.locator('#toast')).toContainText('Pedido enviado a cocina')
+    await openMenu(a)
+  }
+
+  await openCart(a)
+  await a.locator('#ask-bill').tap()
+  await expect(a.locator('#bill')).toContainText('Cuenta pedida')
+  await expect(a.locator('#bill')).toContainText('$46.000')
+
+  // Ana: one payment for both her beers.
+  await expect(a.locator('#bar-amount')).toHaveText('$18.000')
+  await a.locator('#bar-action').tap()
+  await a.locator('#pay-confirm').tap()
+  await expect(a.locator('#toast')).toContainText('Pagado')
+
+  // Beto, on his phone: his part is what is left, and paying it closes the table.
+  await openCart(b)
+  await expect(b.locator('#bar-amount')).toHaveText('$28.000', { timeout: 8000 })
+  await b.locator('#bar-action').tap()
+  await b.locator('#pay-confirm').tap()
+  await expect(b.locator('#bill')).toContainText('Mesa cerrada', { timeout: 8000 })
+  await expect(a.locator('#bill')).toContainText('Mesa cerrada', { timeout: 8000 })
+
+  const [s] = await sql(
+    `select s.status from sessions s join tables t on t.id = s.table_id where t.qr_token = $1`, [qr])
+  expect(s.status).toBe('closed')
+})

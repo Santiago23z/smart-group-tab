@@ -56,3 +56,20 @@ export const openMenu = (page) => page.locator('.tabs button', { hasText: 'Carta
 
 /** The app polls every 2s; give a server-driven change a beat to land. */
 export const settled = (page) => page.waitForTimeout(2600)
+
+/**
+ * A table at its own open-tab venue: rounds go to the kitchen unpaid and the
+ * bill is settled at the end. The seeded venue is pay-before-order.
+ */
+export async function freshOpenTabTable(name, products = [['Cerveza OT', 9000], ['Papas OT', 14000]]) {
+  const [{ id: venueId }] = await sql(
+    `insert into venues (name, default_service_mode, reservation_ttl)
+     values ('Bar abierto', 'open_tab', interval '5 minutes') returning id`)
+  for (const [product, price] of products) {
+    await sql(`insert into products (venue_id, name, unit_price, tax_rate) values ($1, $2, $3, 0)`,
+      [venueId, product, price])
+  }
+  const token = `qr-e2e-${name}-${Date.now().toString(36)}-${seq++}`
+  await sql(`insert into tables (venue_id, label, qr_token) values ($1, $2, $3)`, [venueId, `E2E ${token}`, token])
+  return token
+}

@@ -36,6 +36,10 @@
       <header class="sub"><h2>Cobros abiertos</h2></header>
       <p id="no-collections" class="muted empty" hidden>Ninguna ronda esperando pago.</p>
       <ul id="collection-list"></ul>
+
+      <header class="sub"><h2>Mesas abiertas</h2></header>
+      <p id="no-tables" class="muted empty" hidden>No hay mesas abiertas.</p>
+      <ul id="table-list"></ul>
     </aside>
   </div>
 </main>
@@ -66,6 +70,21 @@
     <div class="dialog-actions">
       <button type="button" class="secondary" data-close>Cancelar</button>
       <button type="submit">Registrar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Asumir pérdida: toda la cuenta pendiente, nunca una parte. -->
+<dialog id="writeoff-dialog">
+  <form method="dialog" id="writeoff-form">
+    <h2 id="writeoff-title"></h2>
+    <p id="writeoff-body"></p>
+    <label>Motivo
+      <input name="reason" required maxlength="200" placeholder="Ej.: se fueron sin pagar">
+    </label>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" data-close>No</button>
+      <button type="submit" class="danger">Asumir pérdida</button>
     </div>
   </form>
 </dialog>

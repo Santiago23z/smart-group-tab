@@ -29,6 +29,7 @@ construction. That is the whole design.
 | 5 | KDS web (orders + read-only staff alerts) | **verified in a browser** (3 specs) |
 | 6 | Wompi reconciliation — lookups on return and every minute | **verified live in the sandbox** |
 | 7 | Staff actions — refund, cancel, resume, release, retry | **verified under concurrency and in a browser** |
+| 8 | Closing a table — the bill, one payment per person across rounds, write-off | **verified under concurrency and in a browser** |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
 finished and verified while the ordering half did not exist at all: there were
@@ -39,10 +40,6 @@ was written but called by nothing.
 
 Still missing before a table can actually eat:
 
-- **`close_session`.** `open_tab` accumulates consumption and nothing settles it
-  at close — the modality has no ending. §15 is now answered (the table absorbs
-  an unpaid share; a whole-table walkout is a venue write-off taken by staff) but
-  not built.
 - **Staff accounts.** The kitchen display exists, behind a shared token per
   deployment, and shows every venue on one screen.
 
@@ -423,6 +420,38 @@ A red banner appears when due dispatches have waited longer than
 
 **One screen shows every venue.** There is no venue scoping yet; the staff token
 is per deployment. Fine for the demo, wrong for a second venue.
+
+## Closing a table
+
+Until phase 8 an `open_tab` table could not be paid at all: its rounds reach the
+kitchen unpaid, and a reservation only accepted a round still in collection.
+
+- **Asking for the bill** (a diner, or staff from "Mesas abiertas") sets
+  `sessions.bill_requested_at`. From then on nothing new can be ordered —
+  recorded apart from `status`, because a table paying its bill can also be
+  flagged for staff, and a flag must not reopen ordering.
+- **The tab** is every active share of a round that went to the kitchen without
+  being collected, not yet paid or written off (`session_tab_shares`). Hybrid
+  rounds the prepaid balance paid are marked `paid_from_balance` and never owed.
+- **One payment per person.** `reserve_tab` takes "mine" or "the rest" across
+  every round in one reservation. A tab reservation has `round_id` null and
+  belongs to the session; it holds shares through the same allocations as a
+  round reservation, so I1b holds unchanged, and it is settled by the same
+  `confirm_webhook` (one extra branch, under the session lock). Webhook,
+  on-return check and periodic check all work as for rounds.
+- **Write-off** covers the whole remaining tab, never a part — so it cannot be a
+  discount — with a mandatory reason, and is refused while anyone holds part of
+  the tab. It is recorded share by share (`write_off_shares`).
+- **Closing** happens by itself when the last payment, write-off or staff action
+  leaves nothing open: no tab, no round in collection, no credit, no pending
+  refund, no open alert. "Cerrar mesa" says which of those still blocks it. A
+  closed table's QR opens a new session.
+- **Late money on a closed table** cannot reopen it (the QR may be seating the
+  next party), so the alerts list closed tables with unplaced money until it is
+  refunded.
+
+Not built: reopening a table after the bill, applying leftover credit to the tab
+(it is refunded), partial write-offs, cash.
 
 ## The invariants
 

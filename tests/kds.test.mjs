@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { makePool, createFixture, reserve, confirmWebhook } from './helpers.mjs'
+import { makePool, createFixture, reserve, confirmWebhook, createVenue, joinSession, addItem, closeRound } from './helpers.mjs'
 import { checkDelivery } from '../src/kds/ingest.mjs'
 import { createKdsServer } from '../src/kds/app.mjs'
 import { drain } from '../src/worker/run.mjs'
@@ -310,6 +310,61 @@ test('staff act from the kitchen screen', async (t) => {
     }
     const { rows: [round] } = await pool.query(`select status from rounds where id = $1`, [fx.roundId])
     assert.equal(round.status, 'locked_for_payment')
+  })
+})
+
+test('staff close tables from the kitchen screen', async (t) => {
+  const kds = await startKds()
+  t.after(() => kds.close())
+  const post = (path, body) => kds.staff(path, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}),
+  })
+
+  async function openTab() {
+    const venue = await createVenue(pool, { serviceMode: 'open_tab', products: [{ price: 16_000 }] })
+    const ana = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Ana' })
+    await addItem(pool, { sessionId: ana.session_id, participantId: ana.participant_id, productId: venue.menu[0].id })
+    await closeRound(pool, { sessionId: ana.session_id })
+    return ana.session_id
+  }
+  const tableIn = async (sessionId) =>
+    (await (await kds.staff('/kds/api/state')).json()).open_tables.find((x) => x.session_id === sessionId)
+
+  await t.test('open tables carry their tab and what blocks closing', async () => {
+    const sessionId = await openTab()
+    const table = await tableIn(sessionId)
+    assert.equal(Number(table.tab.total), 16_000)
+    assert.equal(table.tab.participants[0].nickname, 'Ana')
+    assert.deepEqual(table.blockers.sort(), ['bill_not_requested', 'tab_unpaid'])
+    assert.doesNotMatch(JSON.stringify(table), /psp_reference|transaction/i)
+  })
+
+  await t.test('bill, write-off with a reason, and the table is gone', async () => {
+    const sessionId = await openTab()
+    assert.equal((await (await post(`/kds/api/sessions/${sessionId}/bill`)).json()).status, 'requested')
+
+    const noReason = await post(`/kds/api/sessions/${sessionId}/write-off`, { reason: '' })
+    assert.equal(noReason.status, 409)
+    assert.equal((await noReason.json()).reason, 'reason_required')
+
+    const w = await (await post(`/kds/api/sessions/${sessionId}/write-off`, { reason: 'se fueron' })).json()
+    assert.deepEqual([w.status, w.closed], ['written_off', true])
+    assert.equal(await tableIn(sessionId), undefined)
+  })
+
+  await t.test('closing refused answers 409 with every blocker', async () => {
+    const sessionId = await openTab()
+    const res = await post(`/kds/api/sessions/${sessionId}/close`)
+    assert.equal(res.status, 409)
+    assert.deepEqual((await res.json()).blockers.sort(), ['bill_not_requested', 'tab_unpaid'])
+  })
+
+  await t.test('unknown or malformed tables, and no token', async () => {
+    const unknown = '00000000-0000-4000-8000-00000000cafe'
+    assert.equal((await post(`/kds/api/sessions/${unknown}/close`)).status, 404)
+    assert.equal((await post('/kds/api/sessions/nope/bill')).status, 400)
+    const res = await fetch(`${kds.base}/kds/api/sessions/${unknown}/bill`, { method: 'POST' })
+    assert.equal(res.status, 401)
   })
 })
 

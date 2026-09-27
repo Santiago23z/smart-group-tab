@@ -126,8 +126,7 @@ Siete capacidades documentadas en `openspec/specs/`:
 
 ## Lo que falta
 
-- **Cerrar la cuenta de la mesa** (`close_session`). Ya está decidido quién cubre lo que no se
-  pagó: la mesa; y si se va toda, el restaurante asume la pérdida desde la cocina.
+- **Reabrir una mesa** después de pedir la cuenta, y **pagos en efectivo**.
 - **Cuentas del personal y un restaurante por pantalla.** Hoy hay un solo token y la cocina
   muestra todos los restaurantes juntos.
 - **Llaves de Wompi por restaurante.** Hoy toda la plata va a una sola cuenta de Wompi.
@@ -157,9 +156,10 @@ opciones para el siguiente paso, de la más pequeña a la más grande:
    cocina se puede registrar la devolución de un saldo a favor, cancelar una ronda que nadie
    pagó, reanudar un cobro trabado, liberar una reserva y reintentar un envío. Las alertas se
    quitan solas cuando se resuelve su causa. Cada acción queda registrada.
-3. **Cerrar la cuenta de la mesa** (mediano). Bloqueado por una decisión de negocio: en una
-   mesa con cuenta abierta, si alguien se va sin pagar su parte, ¿quién la cubre: el resto de
-   la mesa, el restaurante o el mesero?
+3. **Cerrar la cuenta de la mesa** — hecho el 27 de septiembre. La mesa pide la cuenta, cada
+   persona paga todo lo suyo de todas las rondas en un solo pago (o alguien cubre el resto), y
+   la mesa se cierra sola. Si toda la mesa se fue, el personal asume la pérdida desde la
+   cocina con un motivo obligatorio.
 4. **Varios restaurantes** (grande). Cada restaurante con sus propias llaves de Wompi (hoy
    toda la plata va a una sola cuenta), sus cuentas de personal y su propia pantalla de cocina.
 
