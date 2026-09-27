@@ -142,3 +142,34 @@ Limitaciones conocidas:
 - Un pago abandonado se revisa cada minuto durante 24 horas: hasta 1.440 consultas a Wompi.
 - El túnel de Cloudflare cambia de dirección cada vez que se reinicia, y hay que volver a
   pegarla en el panel de Wompi ("URL de Eventos").
+
+## ¿Con qué seguir? (opciones abiertas)
+
+La meta del MVP ya funciona de punta a punta: dos celulares en la misma mesa, carrito
+compartido, pago dividido en Wompi sandbox y pedido en la pantalla de cocina. Estas son las
+opciones para el siguiente paso, de la más pequeña a la más grande:
+
+1. **Dejar la demo limpia** (pequeño, uno o dos días).
+   - Base de datos aparte para los tests, para que la cocina no muestre pedidos de prueba.
+   - Que el QR use el nombre del computador y no la IP, para que el comensal siempre vuelva a
+     la mesa después de pagar.
+2. **Acciones del personal en la pantalla de cocina** (mediano). Hoy las alertas solo se ven;
+   una mesa marcada queda marcada para siempre. Faltan botones para:
+   - registrar la devolución de un saldo a favor;
+   - cancelar una ronda;
+   - liberar una reserva trabada;
+   - reintentar un envío a la cocina que falló.
+3. **Cerrar la cuenta de la mesa** (mediano). Bloqueado por una decisión de negocio: en una
+   mesa con cuenta abierta, si alguien se va sin pagar su parte, ¿quién la cubre: el resto de
+   la mesa, el restaurante o el mesero?
+4. **Varios restaurantes** (grande). Cada restaurante con sus propias llaves de Wompi (hoy
+   toda la plata va a una sola cuenta), sus cuentas de personal y su propia pantalla de cocina.
+
+Recomendación técnica: 1, después 2. El 3 necesita primero la respuesta de negocio. El 4
+solo cuando haya un segundo restaurante real.
+
+**Preguntas para quien revise:**
+
+- ¿Qué es más importante ahora: una demo impecable o poder operar una noche real en un bar?
+- ¿Quién cubre la parte que alguien no pagó en una cuenta abierta?
+- ¿Hay un segundo restaurante a la vista?
