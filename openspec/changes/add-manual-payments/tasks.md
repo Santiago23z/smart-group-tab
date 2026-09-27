@@ -15,4 +15,4 @@
 
 - [x] 3.1 README and `docs/estado-actual.md` (cash done; limitation: no undo).
 - [x] 3.2 `npm run test:all` green; migrate the demo database and `npm run audit` green.
-- [ ] 3.3 Live check on the demo (automated): an open-tab table where one diner pays in Wompi and the rest is recorded as cash from the kitchen screen; the table closes.
+- [x] 3.3 Live check on the demo (automated): an open-tab table where one diner pays in Wompi and the rest is recorded as cash from the kitchen screen; the table closes.
