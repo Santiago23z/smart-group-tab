@@ -1,173 +1,199 @@
-# Smart Group Tab — qué hay construido
+# Ronda — qué hay construido
 
-Estado al 26 de septiembre de 2026 (`main` = `d3367c0`).
+Estado al 27 de septiembre de 2026. El código está en `main` (`7c3c42c`); el nuevo diseño de la app
+del comensal está en la rama `restyle-diner` (`9e8051e`), listo para subir.
 
 ## Qué es
 
-Una cuenta compartida para bares y gastrobares. Varias personas en la misma mesa escanean
-un QR, piden desde su celular a un carrito común y pagan cada una su parte con Wompi
-(tarjeta, Nequi, PSE). **La cocina solo recibe una ronda cuando está pagada completa.**
+Una cuenta compartida para bares y gastrobares. Varias personas en la misma mesa escanean un QR,
+piden desde su celular a un carrito común y pagan cada una su parte con Wompi (tarjeta, Nequi,
+PSE). Nadie descarga nada ni crea una cuenta: basta un apodo.
 
-Como la plata en Wompi no se devuelve sola, el sistema está hecho para que sea imposible
-cobrar de más, en vez de corregirlo después.
+Como la plata que se paga por Wompi no se devuelve sola, el sistema está hecho para que sea
+**imposible cobrar de más**, en vez de corregirlo después.
 
-## Un pedido de punta a punta
+## Los tres modos de cobro
 
-1. **Entrar a la mesa.** El comensal escanea el QR (`/t/<mesa>`) y escribe un apodo.
-2. **Pedir.** Todos agregan platos al mismo carrito. Un plato se puede dividir entre varias
-   personas.
+Cada restaurante elige uno. Una mesa conserva el modo con que se abrió aunque el restaurante lo
+cambie después.
+
+| Modo | Cómo funciona |
+|---|---|
+| **Pagar antes de pedir** | Cada ronda se paga completa antes de que la cocina la reciba. |
+| **Cuenta abierta** | Las rondas van a la cocina sin cobrar; se paga todo al final, al pedir la cuenta. |
+| **Híbrido** | La primera ronda se paga antes; las siguientes se descuentan del saldo a favor de la mesa, y si no alcanza, se cobran. |
+
+## Una noche en la mesa, de punta a punta
+
+1. **Entrar.** El comensal escanea el QR de la mesa y escribe un apodo.
+2. **Pedir.** Todos agregan platos al mismo carrito, desde su celular. Un plato se puede
+   compartir entre varias personas; cada una ve cuánto le toca.
 3. **Cerrar la ronda.** El carrito se congela. Lo que se pida después va a una ronda nueva.
-4. **Reservar su parte.** Cada persona aparta las porciones que va a pagar durante 5 minutos.
-   Nadie más puede pagarlas mientras tanto.
-5. **Pagar en Wompi.** Se abre el checkout de Wompi con el monto exacto y una firma.
-6. **Registrar el pago.** El pago llega por tres caminos, y el primero que llegue lo registra:
-   - el aviso (webhook) de Wompi;
-   - la revisión al volver a la mesa;
-   - la revisión automática cada minuto.
-7. **Enviar a la cocina.** Cuando toda la ronda está pagada, un proceso aparte (el worker)
-   la entrega a la pantalla de la cocina y a la impresora.
-8. **Cocina.** La cocina ve el pedido y lo marca "Listo" cuando sale.
+4. **Pagar la ronda** (en "pagar antes de pedir"). Cada persona paga lo suyo ("Pagar lo mío") o
+   alguien cubre lo que falta ("Cubrir el resto"). Lo que se paga queda apartado 5 minutos para
+   esa persona, así dos personas nunca pagan lo mismo.
+5. **Cocina.** Cuando la ronda está pagada completa, llega sola a la pantalla de la cocina. La
+   cocina la marca "Listo" cuando sale.
+6. **Pedir la cuenta.** Al final, cualquier comensal (o el mesero) pide la cuenta. Desde ese
+   momento no se puede pedir más.
+7. **Pagar la cuenta** (en "cuenta abierta"). Cada persona paga **todo lo suyo de todas las rondas
+   en un solo pago**, o alguien cubre el resto de la mesa.
+8. **La mesa se cierra sola** cuando ya no queda nada por pagar. El siguiente grupo que escanee
+   el QR abre una mesa nueva.
 
-Si un pago llega tarde y sus porciones ya las pagó otro, la plata no se pierde: queda como
-saldo a favor de la mesa y la mesa aparece en las alertas del personal.
+## Cómo llega un pago
 
-## Las piezas
+Un pago de Wompi entra por el primero de tres caminos que lo encuentre, y nunca se cuenta dos
+veces:
 
-| Pieza | Qué hace | Dónde está |
-|---|---|---|
-| Base de datos | Mesas, sesiones, rondas, carrito, porciones, reservas, pagos, envíos, devoluciones. Todas las reglas de plata viven aquí, en funciones SQL. | `supabase/migrations/` |
-| App del comensal | Página para el celular: entrar, pedir, dividir, pagar. | `public/`, `src/api/server.mjs` (`npm run web`, puerto 8788) |
-| Puente de Wompi | Arma el link de pago firmado, recibe el aviso de Wompi y revisa cada minuto los pagos pendientes. | `src/wompi/` (`npm run wompi`, puerto 8787) |
-| Conciliación | Pregunta a Wompi por los pagos cuyo aviso no llegó, con la llave privada. | `src/wompi/api.mjs`, `src/wompi/reconcile.mjs` |
-| Worker de envíos | Entrega las rondas pagadas a la cocina y a la impresora. Reintenta si falla. | `src/worker/` (`npm run worker`) |
-| Pantalla de cocina | Pedidos por preparar y alertas para el personal. Protegida con un token. | `src/kds/`, `public/kds/` (`npm run kds`, puerto 8790) |
+- **El aviso de Wompi** (webhook), en segundos.
+- **Al volver a la mesa:** Wompi devuelve al comensal a su mesa y la página confirma el pago al
+  instante.
+- **La revisión automática:** cada minuto el servidor le pregunta a Wompi por los pagos
+  pendientes. Si el aviso se pierde y el comensal cierra el celular, el pago entra igual en
+  menos de un minuto.
+
+Si un pago llega tarde y lo que pagaba ya lo pagó otra persona, la plata no se pierde: queda como
+**saldo a favor** de la mesa y el personal recibe una alerta para devolverla.
+
+## La pantalla de la cocina
+
+Una sola pantalla para el personal, protegida con un enlace secreto:
+
+- **Pedidos:** lo que hay que preparar, con el tiempo de espera y un botón "Listo".
+- **Mesas que necesitan a alguien:** alertas con su motivo y el botón que lo resuelve.
+  - Plata que no se pudo aplicar → **Devolver** (se registra; la plata se devuelve a mano, por
+    Nequi, transferencia o efectivo) → **Llegó** / **No llegó**.
+  - Un pedido que no llegó a la cocina → **Reintentar envío**.
+  - Un cobro trabado → **Reanudar cobro** o **Cancelar ronda**.
+- **Cobros abiertos:** rondas esperando pago, quién tiene apartada su parte, y los botones
+  **Liberar** (soltar una parte apartada) y **Cancelar ronda**.
+- **Mesas abiertas:** cuánto debe cada mesa y cada persona, y los botones **Pedir la cuenta**,
+  **Asumir pérdida** (si toda la mesa se fue: cubre toda la cuenta pendiente, nunca una parte, con
+  motivo obligatorio) y **Cerrar mesa** (si no se puede, dice por qué).
+- Aviso rojo si los pedidos dejan de llegar a la cocina.
+
+Cada acción del personal queda registrada. Las alertas se quitan solas cuando se resuelve su
+causa.
 
 ## Lo que el sistema garantiza
 
-Estas reglas se prueban con tests de concurrencia (muchas personas a la vez) y con una
-auditoría sobre los datos reales (`npm run audit`).
+Estas reglas se prueban con tests de concurrencia (muchas personas a la vez) y con una auditoría
+que revisa los datos reales (`npm run audit`).
 
-- **No se cobra de más (I1).** Una porción solo puede estar reservada por una persona a la vez,
-  y lo pagado nunca supera el total de la ronda.
-- **La cocina recibe cada ronda exactamente una vez (I2).** Nunca cero veces (comida pagada que
-  no se cocina) y nunca dos.
-- **Ningún pago aprobado se pierde (I3).** Aunque llegue tarde, repetido o para una reserva
-  vencida, queda registrado. Y si el aviso de Wompi nunca llega, la conciliación lo encuentra.
+- **No se cobra de más.** Una porción solo puede estar apartada por una persona a la vez, nunca se
+  paga dos veces, y ninguna ronda recibe más de lo que vale.
+- **La cocina recibe cada ronda exactamente una vez.** Nunca cero veces (comida pagada que no se
+  cocina) y nunca dos.
+- **Ningún pago aprobado se pierde.** Aunque llegue tarde, repetido o sin aviso de Wompi, queda
+  registrado. Y si no se puede aplicar, se avisa al personal, incluso si la mesa ya se cerró.
+- **Una mesa no se cierra con algo pendiente:** cuenta sin pagar, ronda en cobro, saldo a favor
+  sin devolver, devolución en curso o alerta sin resolver.
+- **"Asumir pérdida" no es un descuento:** cubre toda la cuenta pendiente, solo después de pedir la
+  cuenta, con motivo, y queda registrado.
 
 ## Qué se probó y cómo
 
 | Qué | Resultado |
 |---|---|
-| Esquema y permisos de la base de datos (`npm run verify:schema`) | 43/43 |
-| Tests de lógica y concurrencia (`npm test`) | 198/198 |
-| Tests en el navegador, con iPhone y Safari simulados (`npm run test:e2e`) | 20/20 |
-| Auditoría de reglas sobre los datos (`npm run audit`) | 10/10 |
-| Pagos reales en el sandbox de Wompi, desde un celular | Funciona de punta a punta |
+| Esquema y permisos de la base de datos (`npm run verify:schema`) | 45/45 |
+| Tests de lógica y concurrencia (`npm test`) | 262/262 |
+| Tests en el navegador, con iPhone y Safari simulados (`npm run test:e2e`) | 26/26 |
+| Auditoría de reglas sobre los datos (`npm run audit`) | 13/13 |
 
-Probado en vivo con Wompi sandbox el 26 de septiembre:
+Probado en vivo con el sandbox de Wompi:
 
-- Un pago con aviso de Wompi llegó a la cocina.
-- Dos pagos **sin** aviso de Wompi los encontró la revisión cada minuto y llegaron a la cocina.
-- Un pago se registró 8 segundos después de aprobado, al volver a la mesa.
-- Un pago perdido de la mañana ($144.720) se recuperó y quedó como saldo a favor de la Mesa 12.
+- **26 de septiembre**, desde un celular real: pagos con y sin aviso de Wompi, la vuelta a la mesa
+  en 8 segundos, y la recuperación de un pago perdido.
+- **27 de septiembre**, cancelar una ronda mientras alguien pagaba: la plata quedó como saldo a
+  favor, no fue a la cocina, y se devolvió desde la pantalla de la cocina.
+- **27 de septiembre**, cuenta abierta con dos personas (automatizado sobre la demo real y Wompi
+  real): dos rondas, pedir la cuenta, un solo pago cada uno por sus dos rondas, y la mesa se cerró
+  sola. Luego una mesa que se fue sin pagar: el personal asumió la pérdida y la mesa se cerró.
+
+## Las piezas
+
+| Pieza | Qué hace | Dónde está |
+|---|---|---|
+| Base de datos | Todas las reglas de plata viven aquí, en funciones SQL: mesas, rondas, porciones, reservas, pagos, cuentas, pérdidas, devoluciones, envíos. | `supabase/migrations/` |
+| App del comensal | La página del celular: entrar, pedir, compartir, pagar, pedir la cuenta. | `public/`, `src/api/` (`npm run web`, puerto 8788) |
+| Puente de Wompi | Recibe el aviso de Wompi y revisa cada minuto los pagos pendientes. | `src/wompi/` (`npm run wompi`, puerto 8787) |
+| Worker de envíos | Entrega los pedidos pagados a la cocina y a la impresora; reintenta si falla. | `src/worker/` (`npm run worker`) |
+| Pantalla de cocina | Pedidos, alertas y acciones del personal. | `src/kds/`, `public/kds/` (`npm run kds`, puerto 8790) |
 
 ## Cómo correrlo
 
 ```bash
 export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
 export DATABASE_URL='postgres://santiagozapata@localhost:5432/smart_group_tab'
-set -a; source .env; set +a      # llaves de Wompi y tokens (nada lee .env solo)
+set -a; source .env; set +a      # llaves de Wompi y tokens
 
 npm run db:migrate && npm run db:seed
 npm run web      # app del comensal (8788)
 npm run wompi    # puente de Wompi + revisión cada minuto (8787)
 npm run worker   # envíos a la cocina
 npm run kds      # pantalla de cocina (8790)
+npm run test:all # todas las pruebas, con su propia base de datos
 ```
 
-Direcciones para la demo:
+Direcciones de la demo:
 
-- Comensal: `http://santiagos-MacBook-Air.local:8788/t/qr-test-mesa-12`. Hay que usar el nombre
-  y no la IP, porque Wompi bloquea el pago si la dirección de regreso es una IP.
-- Cocina: `http://localhost:8790/kds#token=prueba-cocina`.
+- **Comensal:** `http://santiagos-MacBook-Air.local:8788/t/qr-test-mesa-12` (con el nombre de la
+  Mac, no con la IP: Wompi bloquea el pago si la dirección de regreso es una IP).
+- **Cocina:** `http://localhost:8790/kds#token=prueba-cocina`.
 
-Los tests usan su propia base de datos (`smart_group_tab_test`), que se crea sola al correr
-`npm test`. La demo puede seguir encendida mientras corren.
-
-Variables de `.env` (ver `.env.example`): `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`,
-`WOMPI_EVENTS_SECRET`, `WOMPI_PRIVATE_KEY`, `DISPATCH_TOKEN`, `KDS_STAFF_TOKEN`, entre otras.
-`.env` no se sube a git.
+El restaurante de la demo está en modo **cuenta abierta**.
 
 ## Specs (OpenSpec)
 
-Siete capacidades documentadas en `openspec/specs/`:
+Nueve capacidades documentadas en `openspec/specs/`:
 
 | Spec | De qué trata |
 |---|---|
-| `session-lifecycle` | La cuenta de la mesa: apertura por QR, apodos, modos de cobro, saldo a favor. |
-| `round-lifecycle` | Estados de una ronda, congelar el carrito, desborde a una ronda nueva. |
-| `refund-registry` | Registro de devoluciones, que el personal hace a mano. |
-| `dispatch-delivery` | Cómo el worker entrega a la cocina, reintentos y límites. |
+| `session-lifecycle` | La mesa: apertura por QR, apodos, modos de cobro, saldo a favor, pedir la cuenta. |
+| `round-lifecycle` | Estados de una ronda, congelar el carrito, cancelar y reanudar. |
+| `tab-settlement` | La cuenta: qué se debe, pagarla en un solo pago, asumir pérdida, cerrar la mesa. |
+| `payment-reconciliation` | Encontrar los pagos cuyo aviso de Wompi no llegó. |
+| `refund-registry` | Registro de devoluciones que el personal hace a mano. |
+| `dispatch-delivery` | Cómo llegan los pedidos a la cocina, reintentos y límites. |
 | `kitchen-display` | La pantalla de cocina: recibir, mostrar una sola vez, marcar listo. |
-| `staff-alerts` | Mesas que necesitan a alguien y aviso de worker detenido. |
-| `payment-reconciliation` | Encontrar pagos cuyo aviso de Wompi no llegó. |
+| `staff-alerts` | Mesas que necesitan a alguien, y cuándo se quita la alerta. |
+| `staff-actions` | Las acciones del personal y su registro. |
 
 ## Historial
 
-| Fecha | Commit | Qué se agregó |
-|---|---|---|
-| 19 sep | `34fa53e` | Base de datos, reservas atómicas, registro de pagos, carrito, adaptador de Wompi, app del comensal |
-| 20 sep | `24122cd` – `89df1b5` | Nombres de estados alineados, primeras specs, tests en el navegador |
-| 20 sep | `aedc6df` | Worker de envíos a la cocina |
-| 26 sep | `c323a63` | Pantalla de cocina y alertas del personal |
-| 26 sep | `17fd25a` | Arreglo: la firma del pago incluye su vencimiento, como pide Wompi |
-| 26 sep | `7913da6` | Arreglo: un pago rechazado por Wompi nunca se registra como pago simulado |
-| 26 sep | `e7863ae` – `d3367c0` | Conciliación con Wompi |
+| Fecha | Qué se agregó |
+|---|---|
+| 19 sep | Base de datos, reservas sin cobrar de más, registro de pagos, carrito, Wompi, app del comensal |
+| 20 sep | Primeras specs, tests en el navegador, envío de pedidos a la cocina |
+| 26 sep | Pantalla de cocina y alertas; dos arreglos de pagos con Wompi; conciliación de pagos sin aviso |
+| 26 sep | Demo limpia: base de datos aparte para los tests, QR con el nombre de la Mac |
+| 26–27 sep | Acciones del personal: devolver, cancelar, reanudar, liberar, reintentar |
+| 27 sep | Cerrar la cuenta: pedir la cuenta, un pago por persona, asumir pérdida, cierre automático |
+| 27 sep | Nuevo diseño de la app del comensal como **Ronda** (logo, carta, barra de pago) |
 
 ## Lo que falta
 
-- **Reabrir una mesa** después de pedir la cuenta, y **pagos en efectivo**.
-- **Cuentas del personal y un restaurante por pantalla.** Hoy hay un solo token y la cocina
-  muestra todos los restaurantes juntos.
-- **Llaves de Wompi por restaurante.** Hoy toda la plata va a una sola cuenta de Wompi.
+**Para un piloto en un bar real:**
+
+- **Ponerlo en internet:** un dominio, un servidor y la base de datos en la nube. Hoy todo corre
+  en una Mac, y el túnel de Cloudflare que recibe los avisos de Wompi cambia de dirección cada vez
+  que se reinicia.
+
+**Funciones:**
+
+- **Pagos en efectivo o datáfono:** hoy solo se paga por Wompi, así que una mesa que paga en
+  efectivo no se puede cerrar.
+- **Reabrir una mesa** después de pedir la cuenta ("queremos otra ronda").
+- **Quitar un plato después de cerrar la ronda:** hoy solo se puede antes (es una regla a propósito).
+
+**Más adelante:**
+
+- Cuentas individuales del personal (hoy comparten un enlace secreto).
+- Varios restaurantes, cada uno con su cuenta de Wompi y su pantalla de cocina.
+- Rediseño de la pantalla de cocina y una página web de presentación de Ronda.
 
 Limitaciones conocidas:
 
-- La base de la demo todavía guarda los pedidos de prueba de antes de separar las bases, así
-  que la cocina los sigue mostrando hasta limpiarla.
-- Si el computador no tiene nombre `.local` (fuera de Mac), el QR usa la IP y el comensal no
-  vuelve a la mesa después de pagar. El pago igual se registra con la revisión cada minuto.
 - Un pago abandonado se revisa cada minuto durante 24 horas: hasta 1.440 consultas a Wompi.
-- El túnel de Cloudflare cambia de dirección cada vez que se reinicia, y hay que volver a
-  pegarla en el panel de Wompi ("URL de Eventos").
-
-## ¿Con qué seguir? (opciones abiertas)
-
-La meta del MVP ya funciona de punta a punta: dos celulares en la misma mesa, carrito
-compartido, pago dividido en Wompi sandbox y pedido en la pantalla de cocina. Estas son las
-opciones para el siguiente paso, de la más pequeña a la más grande:
-
-1. **Dejar la demo limpia** — hecho el 26 de septiembre.
-   - Los tests usan su propia base de datos, así que la cocina de la demo ya no recibe pedidos
-     de prueba nuevos.
-   - El QR usa el nombre del computador (`.local`) y no la IP, así que el comensal vuelve a la
-     mesa después de pagar.
-2. **Acciones del personal en la pantalla de cocina** — hecho el 26 de septiembre. Desde la
-   cocina se puede registrar la devolución de un saldo a favor, cancelar una ronda que nadie
-   pagó, reanudar un cobro trabado, liberar una reserva y reintentar un envío. Las alertas se
-   quitan solas cuando se resuelve su causa. Cada acción queda registrada.
-3. **Cerrar la cuenta de la mesa** — hecho el 27 de septiembre. La mesa pide la cuenta, cada
-   persona paga todo lo suyo de todas las rondas en un solo pago (o alguien cubre el resto), y
-   la mesa se cierra sola. Si toda la mesa se fue, el personal asume la pérdida desde la
-   cocina con un motivo obligatorio.
-4. **Varios restaurantes** (grande). Cada restaurante con sus propias llaves de Wompi (hoy
-   toda la plata va a una sola cuenta), sus cuentas de personal y su propia pantalla de cocina.
-
-Recomendación técnica: 1, después 2. El 3 necesita primero la respuesta de negocio. El 4
-solo cuando haya un segundo restaurante real.
-
-**Preguntas para quien revise:**
-
-- ¿Qué es más importante ahora: una demo impecable o poder operar una noche real en un bar?
-- ¿Quién cubre la parte que alguien no pagó en una cuenta abierta?
-- ¿Hay un segundo restaurante a la vista?
+- La plata sobrante de una mesa no se usa sola para pagar la cuenta; se devuelve.
