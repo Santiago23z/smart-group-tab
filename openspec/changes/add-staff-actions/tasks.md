@@ -25,4 +25,4 @@
 
 - [x] 4.1 Update README ("The kitchen display") and `docs/estado-actual.md` (option 2 done).
 - [x] 4.2 `npm run test:all` green and `npm run audit` on the demo database still 10/10.
-- [ ] 4.3 Live check on the demo with the Wompi sandbox (a lapsed-hold late payment cannot happen through the real checkout, which expires with the hold): a diner opens the checkout; staff cancel the round from "Cobros abiertos"; the diner pays anyway → the money is credited to the table and flagged (on return, or by the periodic check); staff resolve it with Devolver → Llegó and the table leaves the alerts.
+- [x] 4.3 Live check on the demo with the Wompi sandbox (a lapsed-hold late payment cannot happen through the real checkout, which expires with the hold): a diner opens the checkout; staff cancel the round from "Cobros abiertos"; the diner pays anyway → the money is credited to the table and flagged (on return, or by the periodic check); staff resolve it with Devolver → Llegó and the table leaves the alerts.
