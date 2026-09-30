@@ -324,3 +324,75 @@ test('the rest of a tab on the card terminal closes the table', async ({ page })
   const [m] = await sql(`select method, reference from manual_payments where session_id = $1`, [sessionId])
   expect([m.method, m.reference]).toEqual(['card_terminal', '0457'])
 })
+
+// ---------------------------------------------------------------------------
+// La carta, desde la pantalla del personal
+// ---------------------------------------------------------------------------
+async function venueWithMenu(name) {
+  const [{ id: venueId }] = await sql(
+    `insert into venues (name, default_service_mode) values ($1, 'pay_before_order') returning id`, [`E2E ${name} ${Date.now()}`])
+  for (const [dish, price] of [['Ceviche E2E', 34000], ['Limonada E2E', 9000]]) {
+    await sql(`insert into products (venue_id, name, category, unit_price, tax_rate) values ($1, $2, 'Carta', $3, 0)`, [venueId, dish, price])
+  }
+  const qr = `qr-e2e-${name}-${Date.now().toString(36)}`
+  await sql(`insert into tables (venue_id, label, qr_token) values ($1, 'Mesa 1', $2)`, [venueId, qr])
+  return { venueId, qr }
+}
+
+async function openMenuPanel(page, venueId) {
+  await openScreen(page)
+  await page.locator('#open-menu').click()
+  await page.locator('#menu-venue').selectOption(venueId)
+  await expect(page.locator('#menu-list')).toContainText('Ceviche E2E')
+}
+
+test('a dish marked sold out disappears from the diner\'s menu', async ({ page, browser }) => {
+  const { venueId, qr } = await venueWithMenu('agotado')
+  const diner = await (await browser.newContext()).newPage()
+  await diner.goto(`http://127.0.0.1:${process.env.E2E_PORT ?? 8791}/t/${qr}`)
+  await diner.fill('#nickname', 'Ana')
+  await diner.click('#join-form button[type=submit]')
+  await expect(diner.locator('#menu-list')).toContainText('Ceviche E2E')
+
+  await openMenuPanel(page, venueId)
+  const dish = page.locator('.dish', { hasText: 'Ceviche E2E' })
+  await dish.getByRole('button', { name: 'Marcar agotado' }).click()
+  await expect(dish.getByRole('button', { name: 'Volver a ofrecer' })).toBeVisible()
+
+  await expect(diner.locator('#menu-list')).not.toContainText('Ceviche E2E', { timeout: 8000 })
+  await expect(diner.locator('#menu-list')).toContainText('Limonada E2E')
+})
+
+test('a menu file with a mistake shows the row and changes nothing', async ({ page }) => {
+  const { venueId } = await venueWithMenu('errores')
+  await openMenuPanel(page, venueId)
+  await page.locator('#menu-file').setInputFiles({
+    name: 'carta.csv', mimeType: 'text/csv',
+    buffer: Buffer.from('categoria,nombre,precio,impuesto\nCarta,Ceviche E2E,34000,8\nCarta,Postre,doce mil,8\n'),
+  })
+  await expect(page.locator('#menu-preview')).toContainText('No se cambió nada')
+  await expect(page.locator('#menu-preview')).toContainText('fila 3: precio "doce mil"')
+  expect((await sql(`select count(*) from products where venue_id = $1`, [venueId]))[0].count).toBe('2')
+})
+
+test('a valid menu file shows a preview, and "Aplicar" writes it', async ({ page }) => {
+  const { venueId } = await venueWithMenu('subir')
+  await openMenuPanel(page, venueId)
+  await page.locator('#menu-file').setInputFiles({
+    name: 'carta.csv', mimeType: 'text/csv',
+    buffer: Buffer.from('categoria,nombre,precio,impuesto\nCarta,Ceviche E2E,36000,8\nPostres,Brownie E2E,9000,8\n'),
+  })
+  const preview = page.locator('#menu-preview')
+  await expect(preview).toContainText('1 nuevos, 1 actualizados, 1 se ocultan')
+  await expect(preview).toContainText('Limonada E2E')
+  expect((await sql(`select count(*) from products where venue_id = $1`, [venueId]))[0].count).toBe('2')
+
+  await preview.getByRole('button', { name: 'Aplicar' }).click()
+  await expect(page.locator('#notice')).toContainText('Carta aplicada')
+  await expect(page.locator('#menu-list')).toContainText('Brownie E2E')
+  await expect(page.locator('#menu-list')).not.toContainText('Limonada E2E')
+  const rows = await sql(`select name, unit_price, is_available from products where venue_id = $1 order by name`, [venueId])
+  expect(rows.map((r) => [r.name, Number(r.unit_price), r.is_available])).toEqual([
+    ['Brownie E2E', 9000, true], ['Ceviche E2E', 36000, true], ['Limonada E2E', 9000, false],
+  ])
+})

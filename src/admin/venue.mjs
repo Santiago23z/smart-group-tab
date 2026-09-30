@@ -88,7 +88,11 @@ export function parseMenu(rows) {
     })
   })
 
-  if (errors.length) throw new Error(`La carta tiene errores:\n  ${errors.join('\n  ')}`)
+  if (errors.length) {
+    const err = new Error(`La carta tiene errores:\n  ${errors.join('\n  ')}`)
+    err.errors = errors  // the staff screen lists them one by one
+    throw err
+  }
   return items
 }
 
@@ -134,29 +138,51 @@ export async function loadVenue(pool, { name, mode, tables, barSeats = 0, menu }
     await db.query(
       `update tables set is_active = false where venue_id = $1 and not (label = any($2))`, [venueId, labels])
 
-    const summary = { created: 0, updated: 0, hidden: 0, tables: labels }
-    for (const item of menu) {
-      const { rowCount } = await db.query(
-        `update products set category = $3, unit_price = $4, tax_rate = $5, is_available = true
-          where venue_id = $1 and name = $2`, [venueId, item.name, item.category, item.unitPrice, item.taxRate])
-      if (rowCount) summary.updated++
-      else {
-        await db.query(
-          `insert into products (venue_id, name, category, unit_price, tax_rate) values ($1, $2, $3, $4, $5)`,
-          [venueId, item.name, item.category, item.unitPrice, item.taxRate])
-        summary.created++
-      }
-    }
-    summary.hidden = (await db.query(
-      `update products set is_available = false
-        where venue_id = $1 and is_available and not (name = any($2))`, [venueId, menu.map((m) => m.name)])).rowCount
-
+    const changes = await loadMenu(db, venueId, menu)
     await db.query('commit')
-    return { venueId, summary }
+    return {
+      venueId,
+      summary: { created: changes.added.length, updated: changes.updated.length, hidden: changes.hidden.length, tables: labels },
+    }
   } catch (err) {
     await db.query('rollback').catch(() => {})
     throw err
   } finally {
     db.release()
   }
+}
+
+/**
+ * The menu half of loading a bar, on its own: what the staff screen's upload
+ * runs. The caller holds the transaction. Dishes are matched by name; listed
+ * ones are put back on the menu, the rest are hidden — never deleted, old bills
+ * point at them. `sold_out` is never touched: an upload mid-service must not
+ * bring back what ran out.
+ *
+ * With dryRun it does exactly the same writes inside a savepoint and rolls them
+ * back, so a preview can never disagree with what applying would do.
+ */
+export async function loadMenu(db, venueId, menu, { dryRun = false } = {}) {
+  if (dryRun) await db.query('savepoint menu_preview')
+
+  const changes = { added: [], updated: [], hidden: [] }
+  for (const item of menu) {
+    const { rowCount } = await db.query(
+      `update products set category = $3, unit_price = $4, tax_rate = $5, is_available = true
+        where venue_id = $1 and name = $2`, [venueId, item.name, item.category, item.unitPrice, item.taxRate])
+    if (rowCount) changes.updated.push(item.name)
+    else {
+      await db.query(
+        `insert into products (venue_id, name, category, unit_price, tax_rate) values ($1, $2, $3, $4, $5)`,
+        [venueId, item.name, item.category, item.unitPrice, item.taxRate])
+      changes.added.push(item.name)
+    }
+  }
+  changes.hidden = (await db.query(
+    `update products set is_available = false
+      where venue_id = $1 and is_available and not (name = any($2))
+      returning name`, [venueId, menu.map((m) => m.name)])).rows.map((r) => r.name).sort()
+
+  if (dryRun) await db.query('rollback to savepoint menu_preview')
+  return changes
 }

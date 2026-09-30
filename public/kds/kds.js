@@ -364,6 +364,98 @@ $('cash-form').addEventListener('submit', async (e) => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Carta: agotados, y subir la hoja de cálculo con vista previa
+// ---------------------------------------------------------------------------
+const VENUE_KEY = 'kds.venue'
+let venueId = localStorage.getItem(VENUE_KEY)
+let pendingCsv = null
+
+async function getJson(path) {
+  const res = await fetch(path, { headers: { authorization: `Bearer ${token}` } })
+  return res.json()
+}
+
+async function openMenu() {
+  const { venues } = await getJson('/kds/api/venues')
+  if (!venues.some((v) => v.id === venueId)) venueId = venues[0]?.id ?? null
+  // One venue: nothing to choose. Several: say which one, every time.
+  const select = $('menu-venue')
+  select.hidden = venues.length < 2
+  select.replaceChildren(...venues.map((v) => el('option', { value: v.id, ...(v.id === venueId ? { selected: '' } : {}) }, v.name)))
+  $('menu-preview').hidden = true
+  $('menu-dialog').showModal()
+  await renderMenu()
+}
+
+$('menu-venue').addEventListener('change', async (e) => {
+  venueId = e.target.value
+  localStorage.setItem(VENUE_KEY, venueId)
+  $('menu-preview').hidden = true
+  await renderMenu()
+})
+
+async function renderMenu() {
+  if (!venueId) return $('menu-list').replaceChildren(el('p', { class: 'muted' }, 'No hay restaurantes cargados.'))
+  localStorage.setItem(VENUE_KEY, venueId)
+  const { products } = await getJson(`/kds/api/venues/${venueId}/menu`)
+  const onMenu = products.filter((p) => p.is_available)
+  const groups = {}
+  for (const p of onMenu) (groups[p.category ?? 'Carta'] ??= []).push(p)
+  $('menu-list').replaceChildren(...Object.entries(groups).flatMap(([cat, items]) => [
+    el('p', { class: 'menu-cat' }, cat),
+    ...items.map((p) => el('div', { class: `dish${p.sold_out ? ' out' : ''}`, 'data-product': p.id },
+      el('span', { class: 'name' }, p.name),
+      el('span', { class: 'price' }, money(p.unit_price)),
+      el('button', {
+        class: p.sold_out ? '' : 'secondary',
+        onclick: async () => {
+          await run(`/kds/api/venues/${venueId}/products/${p.id}/sold-out`, { sold_out: !p.sold_out })
+          await renderMenu()
+        },
+      }, p.sold_out ? 'Volver a ofrecer' : 'Marcar agotado'))),
+  ]))
+}
+
+$('menu-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0]
+  e.target.value = ''
+  if (!file) return
+  pendingCsv = await file.text()
+  const r = await act(`/kds/api/venues/${venueId}/menu`, { csv: pendingCsv })
+  const box = $('menu-preview')
+  box.hidden = false
+  if (r.errors) {
+    pendingCsv = null
+    box.className = 'bad'
+    box.replaceChildren(
+      el('strong', {}, 'La carta tiene errores. No se cambió nada.'),
+      el('ul', {}, ...r.errors.map((m) => el('li', {}, m))))
+    return
+  }
+  box.className = ''
+  const list = (title, names) => names.length > 0 && el('div', {}, el('strong', {}, `${title} (${names.length})`),
+    el('ul', {}, ...names.map((n) => el('li', {}, n))))
+  box.replaceChildren(
+    el('strong', {}, `Vista previa: ${r.added.length} nuevos, ${r.updated.length} actualizados, ${r.hidden.length} se ocultan.`),
+    list('Nuevos', r.added), list('Se ocultan', r.hidden),
+    el('div', { class: 'actions' },
+      el('button', { class: 'secondary', onclick: () => { pendingCsv = null; box.hidden = true } }, 'Cancelar'),
+      el('button', {
+        onclick: async () => {
+          const applied = await act(`/kds/api/venues/${venueId}/menu`, { csv: pendingCsv, apply: true })
+          pendingCsv = null
+          box.hidden = true
+          notice(applied.status === 'applied'
+            ? `Carta aplicada: ${applied.added.length} nuevos, ${applied.updated.length} actualizados, ${applied.hidden.length} ocultos.`
+            : 'No se pudo aplicar la carta.')
+          await renderMenu()
+        },
+      }, 'Aplicar')))
+})
+
+$('open-menu').addEventListener('click', openMenu)
+
 let writeOffTarget = null
 
 function openWriteOff(t) {

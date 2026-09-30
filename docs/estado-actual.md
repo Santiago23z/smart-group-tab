@@ -137,6 +137,12 @@ Probado en vivo con el sandbox de Wompi:
 3. Imprimir los QR: `npm run venue:qr -- --name "La Terraza"`. Deja un PDF en la carpeta `qr/`,
    con 6 tarjetas por hoja para recortar y pegar en las mesas.
 
+**El restaurante también puede hacerlo solo** desde la pantalla de la cocina, botón **"Carta"**:
+subir su hoja de cálculo (ve los errores con su fila, o una vista previa de lo que se agrega, se
+actualiza y se oculta, y nada cambia hasta tocar **Aplicar**) y marcar platos **agotados**, que
+desaparecen al instante del menú de los comensales. Subir la carta en pleno servicio no "desagota"
+nada.
+
 Volver a cargar la carta actualiza precios y oculta los platos que ya no están. **Los QR de las
 mesas nunca cambian**, así que no hay que reimprimirlos. Mientras no haya dominio, los QR apuntan a
 la dirección de la Mac y solo funcionan en la misma red wifi; con el dominio se regeneran con
@@ -193,6 +199,8 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 27 sep | Cerrar la cuenta: pedir la cuenta, un pago por persona, asumir pérdida, cierre automático |
 | 27 sep | Nuevo diseño de la app del comensal como **Ronda** (logo, carta, barra de pago) |
 | 27 sep | Pagos en efectivo y datáfono registrados por el personal |
+| 30 sep | Montar un bar desde una hoja de cálculo, y QR imprimibles por mesa |
+| 1 oct | El restaurante sube su carta y marca platos agotados desde la cocina |
 
 ## Lo que falta
 

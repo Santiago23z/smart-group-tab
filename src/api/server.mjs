@@ -121,7 +121,8 @@ async function tableState(sessionId, participantId) {
                   'id', pr.id, 'name', pr.name, 'category', pr.category,
                   'unit_price', pr.unit_price, 'tax_rate', pr.tax_rate)
                  order by pr.category nulls last, pr.name), '[]'::jsonb)
-           from products pr where pr.venue_id = se.venue_id and pr.is_available),
+           -- On the menu and not sold out tonight.
+           from products pr where pr.venue_id = se.venue_id and pr.is_available and not pr.sold_out),
        'rounds', (
          select coalesce(jsonb_agg(jsonb_build_object(
                   'id', r.id, 'number', r.round_number, 'status', r.status,

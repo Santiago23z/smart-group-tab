@@ -23,7 +23,8 @@
 
   <div class="layout">
     <section class="orders">
-      <header><h1>Pedidos</h1><span id="order-count" class="muted"></span></header>
+      <header><h1>Pedidos</h1><span id="order-count" class="muted"></span>
+        <button class="secondary" id="open-menu">Carta</button></header>
       <p id="no-orders" class="muted empty" hidden>No hay pedidos pendientes.</p>
       <div id="tickets" class="tickets"></div>
     </section>
@@ -112,6 +113,20 @@
       <button type="submit">Continuar</button>
     </div>
   </form>
+</dialog>
+
+<!-- La carta: agotados, y subir la hoja de cálculo con vista previa. -->
+<dialog id="menu-dialog" class="wide">
+  <div class="menu-head">
+    <h2>Carta</h2>
+    <select id="menu-venue" hidden></select>
+    <label class="upload secondary">Subir carta
+      <input type="file" id="menu-file" accept=".csv,text/csv" hidden>
+    </label>
+    <button type="button" class="secondary" data-close>Cerrar</button>
+  </div>
+  <section id="menu-preview" hidden></section>
+  <div id="menu-list"></div>
 </dialog>
 
 <!-- Confirmación genérica para acciones que no se deshacen. -->

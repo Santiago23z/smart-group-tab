@@ -404,4 +404,65 @@ test('staff record cash and card-terminal payments', async (t) => {
   })
 })
 
+test('a venue manages its own menu from the kitchen screen', async (t) => {
+  const kds = await startKds()
+  t.after(() => kds.close())
+  const post = (path, body) => kds.staff(path, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  })
+  const venue = await createVenue(pool, { products: [{ price: 34_000 }, { price: 12_000 }] })
+  const names = (await pool.query(`select name from products where venue_id = $1 order by unit_price desc`, [venue.venueId])).rows.map((r) => r.name)
+  const menuOf = async () => (await (await kds.staff(`/kds/api/venues/${venue.venueId}/menu`)).json()).products
+
+  await t.test('venues and a venue\'s menu are listed', async () => {
+    const venues = await (await kds.staff('/kds/api/venues')).json()
+    assert.ok(venues.venues.some((v) => v.id === venue.venueId))
+    assert.deepEqual((await menuOf()).map((p) => [p.name, Number(p.unit_price), p.sold_out]).sort(),
+      [[names[0], 34_000, false], [names[1], 12_000, false]].sort())
+  })
+
+  await t.test('an upload with mistakes answers 422 with each one', async () => {
+    const res = await post(`/kds/api/venues/${venue.venueId}/menu`, { csv: 'nombre,precio\nCerveza,doce\n', apply: true })
+    assert.equal(res.status, 422)
+    assert.deepEqual((await res.json()).errors, ['fila 2: precio "doce" no es un número de pesos'])
+  })
+
+  await t.test('preview writes nothing; apply writes exactly what it previewed', async () => {
+    const csv = `categoria,nombre,precio,impuesto\nFuertes,${names[0]},36000,8\nPostres,Brownie,9000,8\n`
+    const preview = await (await post(`/kds/api/venues/${venue.venueId}/menu`, { csv })).json()
+    assert.deepEqual([preview.status, preview.added, preview.updated, preview.hidden], ['preview', ['Brownie'], [names[0]], [names[1]]])
+    assert.equal((await menuOf()).length, 2, 'nothing written by a preview')
+
+    const applied = await (await post(`/kds/api/venues/${venue.venueId}/menu`, { csv, apply: true })).json()
+    assert.deepEqual([applied.status, applied.added, applied.updated, applied.hidden], ['applied', ['Brownie'], [names[0]], [names[1]]])
+    const after = await menuOf()
+    assert.deepEqual(after.filter((p) => p.is_available).map((p) => p.name).sort(), ['Brownie', names[0]].sort())
+    const { rows } = await pool.query(`select detail from staff_action_log where action = 'menu_upload' and target_id = $1`, [venue.venueId])
+    assert.deepEqual(rows.map((r) => [r.detail.added, r.detail.updated, r.detail.hidden]), [[1, 1, 1]])
+  })
+
+  await t.test('sold out on and off, and a dish of another venue refused', async () => {
+    const dish = venue.menu[0].id
+    const on = await post(`/kds/api/venues/${venue.venueId}/products/${dish}/sold-out`, { sold_out: true })
+    assert.equal(on.status, 200)
+    assert.equal((await menuOf()).find((p) => p.id === dish).sold_out, true)
+    await post(`/kds/api/venues/${venue.venueId}/products/${dish}/sold-out`, { sold_out: false })
+    assert.equal((await menuOf()).find((p) => p.id === dish).sold_out, false)
+
+    const other = await createVenue(pool, { products: [{ price: 5_000 }] })
+    assert.equal((await post(`/kds/api/venues/${venue.venueId}/products/${other.menu[0].id}/sold-out`, { sold_out: true })).status, 409)
+    assert.equal((await post(`/kds/api/venues/${venue.venueId}/products/00000000-0000-4000-8000-00000000abcd/sold-out`, { sold_out: true })).status, 404)
+  })
+
+  await t.test('unknown venue 404, no token 401', async () => {
+    assert.equal((await kds.staff('/kds/api/venues/00000000-0000-4000-8000-00000000abcd/menu')).status, 404)
+    assert.equal((await fetch(`${kds.base}/kds/api/venues`)).status, 401)
+    const res = await fetch(`${kds.base}/kds/api/venues/${venue.venueId}/menu`, {
+      method: 'POST', headers: { authorization: `Bearer ${DISPATCH}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ csv: 'nombre,precio\nX,1000\n', apply: true }),
+    })
+    assert.equal(res.status, 401)
+  })
+})
+
 test.after(() => pool.end())

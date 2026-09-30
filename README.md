@@ -487,6 +487,14 @@ QR**: those are printed. `venue:qr` writes a printable HTML (and a PDF when the
 test browser is installed) to `qr/`, six cards per A4 page. Without `--base` it
 uses the Mac's `.local` address, which only works on the same wifi.
 
+The venue can do the menu part itself from the kitchen screen ("Carta"): upload the
+same spreadsheet — the screen shows every error with its row, or a preview of what
+will be added, updated and hidden, and writes nothing until "Aplicar" (the preview
+runs the same writes and rolls them back) — and mark dishes sold out. Sold out is
+its own flag (`products.sold_out`), not `is_available`, so an upload mid-service
+never brings back what ran out. The staff token still sees every venue; with more
+than one, the panel asks which.
+
 ## The invariants
 
 Everything in this repo is scaffolding to hold up five statements. Each one gets

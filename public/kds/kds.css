@@ -177,3 +177,22 @@ dialog input, dialog select {
 .parts label:has(input:checked) { border-color: var(--accent); }
 .parts input { accent-color: var(--accent); width: 1.1rem; height: 1.1rem; }
 .parts .amt { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* Carta ------------------------------------------------------------------ */
+.orders > header { align-items: center; }
+#open-menu { margin-left: auto; padding: .55rem 1rem; }
+dialog.wide { width: min(46rem, 94vw); max-height: 88vh; }
+.menu-head { display: flex; align-items: center; gap: .6rem; margin-bottom: 1rem; }
+.menu-head h2 { margin-right: auto; }
+.upload { display: inline-block; font-weight: 700; border-radius: 10px; padding: .55rem 1rem; cursor: pointer;
+          background: var(--surface-2); border: 1px solid var(--line); }
+#menu-venue { font: inherit; padding: .5rem; border-radius: 10px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+.menu-cat { color: var(--muted); font-weight: 700; margin: 1rem 0 .3rem; }
+.dish { display: flex; align-items: center; gap: .8rem; padding: .55rem 0; border-bottom: 1px solid var(--line); }
+.dish .name { flex: 1; font-weight: 600; }
+.dish.out .name { color: var(--muted); text-decoration: line-through; }
+.dish .price { color: var(--muted); font-variant-numeric: tabular-nums; }
+.dish button { padding: .45rem .8rem; font-size: .9rem; min-width: 8.5rem; }
+#menu-preview { border: 2px solid var(--warn); border-radius: var(--radius); padding: .9rem; margin-bottom: 1rem; display: grid; gap: .5rem; }
+#menu-preview.bad { border-color: var(--err); }
+#menu-preview ul { margin: 0; padding-left: 1.2rem; }

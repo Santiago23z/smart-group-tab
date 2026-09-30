@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 import { checkDelivery } from './ingest.mjs'
 import { hasBearer } from './auth.mjs'
+import { loadMenu, parseCsv, parseMenu } from '../admin/venue.mjs'
 
 const publicDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'kds')
 
@@ -63,9 +64,15 @@ const ACTIONS = [
 const answer = (r) =>
   r.status !== 'rejected' ? 200 : r.reason?.startsWith('unknown_') ? 404 : 409
 
-async function readBody(req) {
+async function readBody(req, limitBytes = 1_000_000) {
   const chunks = []
-  for await (const chunk of req) chunks.push(chunk)
+  let size = 0
+  for await (const chunk of req) {
+    size += chunk.length
+    // A menu spreadsheet is a few KB; anything this big is not one.
+    if (size > limitBytes) throw Object.assign(new Error('payload too large'), { status: 413 })
+    chunks.push(chunk)
+  }
   return Buffer.concat(chunks).toString('utf8')
 }
 
@@ -131,6 +138,66 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
           return reply(200, {
             now: new Date().toISOString(), tickets, alerts, collections, open_tables: openTables,
           })
+        }
+
+        // -- The venue's menu (minimal self-service) --------------------------
+        if (req.method === 'GET' && url.pathname === '/kds/api/venues') {
+          const { rows } = await pool.query(`select id, name from venues order by name, created_at`)
+          return reply(200, { venues: rows })
+        }
+        const menuPath = /^\/kds\/api\/venues\/([^/]+)\/menu$/.exec(url.pathname)
+        if (menuPath) {
+          const venueId = menuPath[1]
+          if (!UUID.test(venueId)) return reply(400, { error: 'bad_venue' })
+          if ((await pool.query(`select 1 from venues where id = $1`, [venueId])).rowCount === 0) {
+            return reply(404, { error: 'unknown_venue' })
+          }
+          if (req.method === 'GET') {
+            const { rows } = await pool.query(
+              `select id, name, category, unit_price, tax_rate, is_available, sold_out
+                 from products where venue_id = $1 order by category nulls last, name`, [venueId])
+            return reply(200, { products: rows })
+          }
+          if (req.method === 'POST') {
+            let body
+            try { body = JSON.parse(await readBody(req)) } catch (err) {
+              return reply(err.status ?? 400, { error: err.status ? 'too_large' : 'not_json' })
+            }
+            let menu
+            try {
+              menu = parseMenu(parseCsv(String(body.csv ?? '')))
+            } catch (err) {
+              return reply(422, { errors: err.errors ?? [err.message] })
+            }
+            // Preview and apply run the very same writes; a preview rolls them
+            // back, so it can never promise something applying would not do.
+            const db = await pool.connect()
+            try {
+              await db.query('begin')
+              const changes = await loadMenu(db, venueId, menu, { dryRun: !body.apply })
+              if (body.apply) {
+                await db.query(`select staff_log('menu_upload', $1, null, $2::jsonb)`, [venueId, JSON.stringify({
+                  added: changes.added.length, updated: changes.updated.length, hidden: changes.hidden.length,
+                })])
+              }
+              await db.query('commit')
+              return reply(200, { status: body.apply ? 'applied' : 'preview', ...changes })
+            } catch (err) {
+              await db.query('rollback').catch(() => {})
+              throw err
+            } finally {
+              db.release()
+            }
+          }
+        }
+        const soldOut = /^\/kds\/api\/venues\/([^/]+)\/products\/([^/]+)\/sold-out$/.exec(url.pathname)
+        if (soldOut && req.method === 'POST') {
+          if (!UUID.test(soldOut[1]) || !UUID.test(soldOut[2])) return reply(400, { error: 'bad_id' })
+          let body
+          try { body = JSON.parse(await readBody(req)) } catch { return reply(400, { error: 'not_json' }) }
+          if (typeof body.sold_out !== 'boolean') return reply(400, { error: 'bad_flag' })
+          const r = await one(`select staff_set_sold_out($1, $2, $3) as r`, [soldOut[1], soldOut[2], body.sold_out])
+          return reply(answer(r), r)
         }
 
         const done = /^\/kds\/api\/tickets\/([^/]+)\/done$/.exec(url.pathname)
