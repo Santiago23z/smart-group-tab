@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#14110f">
-<title>Cocina — Smart Group Tab</title>
+<meta name="theme-color" content="#120f0d">
+<title>Cocina · Ronda</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23120f0d'/%3E%3Cg fill='none' stroke='%23ec9a52' stroke-width='2.6'%3E%3Ccircle cx='11.5' cy='12' r='6'/%3E%3Ccircle cx='20.5' cy='12' r='6'/%3E%3Ccircle cx='16' cy='19.5' r='6'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="/kds/kds.css">
 </head>
 <body>
 
 <!-- Sin token ---------------------------------------------------------- -->
 <section id="locked" hidden>
+  <p class="brand">Ronda</p>
   <h1>Pantalla de cocina</h1>
   <p class="muted">Abrí esta pantalla con el enlace del personal
     (<code>/kds#token=…</code>).</p>
@@ -18,27 +20,31 @@
 
 <!-- Cocina ------------------------------------------------------------- -->
 <main id="kds" hidden>
+  <header class="topbar">
+    <p class="brand">Ronda <span>Cocina</span></p>
+    <span id="clock" class="clock"></span>
+    <button class="secondary" id="open-menu">Carta</button>
+  </header>
   <p id="stall" class="banner" hidden></p>
   <p id="offline" class="banner" hidden>Sin conexión con el servidor. Reintentando…</p>
 
   <div class="layout">
     <section class="orders">
-      <header><h1>Pedidos</h1><span id="order-count" class="muted"></span>
-        <button class="secondary" id="open-menu">Carta</button></header>
+      <header><h1>Pedidos</h1><span id="order-count" class="muted"></span></header>
       <p id="no-orders" class="muted empty" hidden>No hay pedidos pendientes.</p>
       <div id="tickets" class="tickets"></div>
     </section>
 
     <aside class="alerts">
-      <header><h2>Mesas que necesitan a alguien</h2></header>
+      <header><h2>Mesas que necesitan a alguien</h2><span class="count" id="alert-count"></span></header>
       <p id="no-alerts" class="muted empty" hidden>Todo en orden.</p>
       <ul id="alert-list"></ul>
 
-      <header class="sub"><h2>Cobros abiertos</h2></header>
+      <header class="sub"><h2>Cobros abiertos</h2><span class="count" id="collection-count"></span></header>
       <p id="no-collections" class="muted empty" hidden>Ninguna ronda esperando pago.</p>
       <ul id="collection-list"></ul>
 
-      <header class="sub"><h2>Mesas abiertas</h2></header>
+      <header class="sub"><h2>Mesas abiertas</h2><span class="count" id="table-count"></span></header>
       <p id="no-tables" class="muted empty" hidden>No hay mesas abiertas.</p>
       <ul id="table-list"></ul>
     </aside>

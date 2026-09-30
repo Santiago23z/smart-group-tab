@@ -196,13 +196,14 @@ function renderAlerts(alerts) {
         ? el('span', { class: 'ack-note' },
             `Visto (${new Date(a.acknowledged_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}) — sigue sin resolver.`)
         : el('button', {
-            class: 'secondary',
+            class: 'text',
             onclick: async (e) => {
               e.currentTarget.disabled = true
               await api(`/kds/api/alerts/${a.session_id}/ack`, { method: 'POST' }).catch(() => {})
               refresh()
             },
           }, 'Visto'))))
+  $('alert-count').textContent = tables.length ? String(tables.length) : ''
 }
 
 const REFUND_STATE = { pending: 'pendiente', completed: 'completada' }
@@ -289,6 +290,7 @@ const hhmm = (iso) => new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit
 
 function renderCollections(collections) {
   $('no-collections').hidden = collections.length > 0
+  $('collection-count').textContent = collections.length ? String(collections.length) : ''
   $('collection-list').replaceChildren(...collections.map((c) => {
     const stalled = c.status === 'requires_staff_attention'
     return el('li', { class: `collection${stalled ? ' stalled' : ''}`, 'data-round': c.round_id },
@@ -477,9 +479,20 @@ $('writeoff-form').addEventListener('submit', async (e) => {
 
 function renderOpenTables(tables) {
   $('no-tables').hidden = tables.length > 0
-  $('table-list').replaceChildren(...tables.map((t) => {
+  $('table-count').textContent = tables.length ? String(tables.length) : ''
+  // Tables with something going on first; quiet ones last, as one line each.
+  const quiet = (t) => !t.bill_requested_at && Number(t.tab.total) === 0 && Number(t.prepaid_balance) === 0
+  const sorted = [...tables].sort((a, b) => quiet(a) - quiet(b))
+  $('table-list').replaceChildren(...sorted.map((t) => {
     const asked = Boolean(t.bill_requested_at)
     const owed = Number(t.tab.total)
+    if (quiet(t)) {
+      return el('li', { class: 'collection idle', 'data-session': t.session_id },
+        el('span', { class: 'collection-head' }, t.table),
+        el('span', { class: 'muted' }, 'sin cuenta'),
+        el('div', { class: 'actions' },
+          el('button', { class: 'secondary', onclick: () => run(`/kds/api/sessions/${t.session_id}/bill`) }, 'Pedir la cuenta')))
+    }
     return el('li', { class: `collection${asked ? ' stalled' : ''}`, 'data-session': t.session_id },
       el('span', { class: 'collection-head' }, `${t.table}${asked ? ' · cuenta pedida' : ''}`),
       el('span', {}, owed > 0 ? `Cuenta pendiente: ${money(owed)}` : 'Sin cuenta pendiente'),
@@ -502,7 +515,12 @@ function renderOpenTables(tables) {
           }),
         }, 'Cobrar en caja'),
         asked && owed > 0 && el('button', { class: 'danger', onclick: () => openWriteOff(t) }, 'Asumir pérdida'),
-        el('button', { onclick: () => run(`/kds/api/sessions/${t.session_id}/close`) }, 'Cerrar mesa')))
+        // Amber only when it will work; otherwise it stays available (and says
+        // why it cannot close) without inviting the tap.
+        el('button', {
+          class: t.blockers.length ? 'secondary' : '',
+          onclick: () => run(`/kds/api/sessions/${t.session_id}/close`),
+        }, 'Cerrar mesa')))
   }))
 }
 
@@ -513,6 +531,8 @@ async function refresh() {
   try {
     const state = await api('/kds/api/state')
     clockOffsetMs = Date.parse(state.now) - Date.now()
+    $('clock').textContent = new Date(Date.now() + clockOffsetMs)
+      .toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
     last = state
     $('offline').hidden = true
     renderTickets(state.tickets)
@@ -528,6 +548,8 @@ async function refresh() {
 
 // Timers tick every second without waiting for the next poll.
 setInterval(() => {
+  $('clock').textContent = new Date(Date.now() + clockOffsetMs)
+    .toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
   if (!last) return
   for (const node of document.querySelectorAll('.ticket-wait')) {
     node.textContent = waited(node.dataset.since).text
