@@ -468,6 +468,25 @@ optional tip. `manual_payments` records method, reference, amount, tip and who i
 was for ("the rest" is paid by the table's staff participant, *Caja*). There is
 no undo; the screen asks to confirm first.
 
+## Setting up a real bar
+
+A bar's menu comes from a spreadsheet exported as CSV (columns `categoria`,
+`nombre`, `precio`, `impuesto` — Spanish or English headers, comma or semicolon;
+see `docs/carta-ejemplo.csv`):
+
+```bash
+npm run venue:load -- --name "La Terraza" --mode open_tab --tables 12 --bar 3 --menu carta.csv
+npm run venue:qr   -- --name "La Terraza" --base https://app.example.com
+```
+
+`venue:load` creates or updates the bar by name, in one transaction: numbered
+tables ("Mesa 1…", "Barra 1…") with random QR tokens — unlike the guessable
+`qr-test-mesa-12` — and the menu. Loading again updates prices, hides dishes that
+left the spreadsheet (old bills still point at them) and **never changes a table's
+QR**: those are printed. `venue:qr` writes a printable HTML (and a PDF when the
+test browser is installed) to `qr/`, six cards per A4 page. Without `--base` it
+uses the Mac's `.local` address, which only works on the same wifi.
+
 ## The invariants
 
 Everything in this repo is scaffolding to hold up five statements. Each one gets

@@ -125,6 +125,23 @@ Probado en vivo con el sandbox de Wompi:
 | Worker de envíos | Entrega los pedidos pagados a la cocina y a la impresora; reintenta si falla. | `src/worker/` (`npm run worker`) |
 | Pantalla de cocina | Pedidos, alertas y acciones del personal. | `src/kds/`, `public/kds/` (`npm run kds`, puerto 8790) |
 
+## Montar un bar nuevo
+
+1. Llenar la carta en Excel o Google Sheets con 4 columnas: `categoria`, `nombre`, `precio`,
+   `impuesto` (por ejemplo `8` para 8%). Exportarla como CSV. Hay un ejemplo en
+   `docs/carta-ejemplo.csv`.
+2. Cargar el bar:
+   `npm run venue:load -- --name "La Terraza" --mode open_tab --tables 12 --bar 3 --menu carta.csv`
+   (`--mode`: `pay_before_order`, `open_tab` o `hybrid`). Si la carta tiene errores, dice cuáles y
+   en qué fila, y no carga nada.
+3. Imprimir los QR: `npm run venue:qr -- --name "La Terraza"`. Deja un PDF en la carpeta `qr/`,
+   con 6 tarjetas por hoja para recortar y pegar en las mesas.
+
+Volver a cargar la carta actualiza precios y oculta los platos que ya no están. **Los QR de las
+mesas nunca cambian**, así que no hay que reimprimirlos. Mientras no haya dominio, los QR apuntan a
+la dirección de la Mac y solo funcionan en la misma red wifi; con el dominio se regeneran con
+`--base https://…`.
+
 ## Cómo correrlo
 
 ```bash

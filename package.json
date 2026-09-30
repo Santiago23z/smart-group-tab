@@ -11,6 +11,8 @@
     "db:migrate": "node scripts/db.mjs migrate",
     "db:seed": "node scripts/db.mjs seed",
     "db:reset": "node scripts/db.mjs reset",
+    "venue:load": "node scripts/venue.mjs load",
+    "venue:qr": "node scripts/venue.mjs qr",
     "verify:schema": "node scripts/verify-schema.mjs",
     "pretest": "node scripts/test-db.mjs",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
