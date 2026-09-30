@@ -10,8 +10,9 @@
 
 import pg from 'pg'
 import { createKdsServer } from './app.mjs'
+import { kdsPort } from './port.mjs'
 
-const port = Number(process.env.KDS_PORT ?? 8790)
+const port = kdsPort(process.env)
 const connectionString = process.env.DATABASE_URL
 const dispatchToken = process.env.DISPATCH_TOKEN
 const staffToken = process.env.KDS_STAFF_TOKEN

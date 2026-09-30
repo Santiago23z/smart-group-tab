@@ -28,6 +28,11 @@ if (!connectionString) {
 const client = new pg.Client({ connectionString })
 
 async function migrate() {
+  // On Railway every service runs this before it starts, and they deploy at
+  // the same time. The lock makes them take turns: the first applies what is
+  // missing, the rest find it done. Held until this connection closes.
+  await client.query(`select pg_advisory_lock(hashtext('smart_group_tab.migrate'))`)
+
   await client.query(`
     create table if not exists schema_migrations (
       version    text primary key,
