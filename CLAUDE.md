@@ -31,7 +31,7 @@
 - **The Goal:** A functional 1-minute end-to-end live demo (QR scan on two concurrent mobile devices ➔ collaborative cart ➔ fractional payment in Wompi sandbox ➔ KDS dispatch).
 - **In Scope:** Complete backend (Supabase SQL migrations, RLS, atomic RPCs), Wompi sandbox adapter with HMAC verification, Outbox Worker, and the **KDS Web UI** (the only staff surface).
 - **Out of Scope:** Native mobile apps, complex waiter-specific dashboards, automated API refunds, and full menu management panels.
-- **Menu self-service (in scope since 2026-09-30, deliberately minimal):** from the staff screen a venue can upload its menu spreadsheet (the same template and validation as `npm run venue:load`) and mark a dish sold out / available. No per-dish editor, photos, descriptions or modifiers.
+- **Menu self-service (in scope since 2026-09-30, deliberately minimal):** from the staff screen a venue can upload its menu spreadsheet (the same template and validation as `npm run venue:load`) and mark a dish sold out / available. Since 2026-10-02 it can also attach one photo per dish from the staff screen, shown on the diner menu. No per-dish editor, descriptions or modifiers.
 
 ## 7. Workflow & Communication Rules
 - **Concise Outputs:** Keep all responses, explanations, and commit messages extremely concise and direct. No long, ambiguous, or conversational filler.
