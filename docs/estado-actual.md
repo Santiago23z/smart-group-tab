@@ -143,6 +143,12 @@ actualiza y se oculta, y nada cambia hasta tocar **Aplicar**) y marcar platos **
 desaparecen al instante del menú de los comensales. Subir la carta en pleno servicio no "desagota"
 nada.
 
+**Fotos de los platos:** en el mismo panel, cada plato tiene **Foto** (y luego **Cambiar foto** /
+**Quitar**). La tablet achica la foto antes de enviarla, así que una foto de 4 MB del celular
+queda en unos pocos KB. Los comensales ven una fotito al lado del plato y la abren grande al
+tocarla; cada celular la descarga una sola vez. Las fotos no van en la hoja de cálculo: se ponen
+desde la pantalla, y subir la carta no las borra.
+
 Volver a cargar la carta actualiza precios y oculta los platos que ya no están. **Los QR de las
 mesas nunca cambian**, así que no hay que reimprimirlos. Mientras no haya dominio, los QR apuntan a
 la dirección de la Mac y solo funcionan en la misma red wifi; con el dominio se regeneran con
@@ -201,6 +207,8 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 27 sep | Pagos en efectivo y datáfono registrados por el personal |
 | 30 sep | Montar un bar desde una hoja de cálculo, y QR imprimibles por mesa |
 | 1 oct | El restaurante sube su carta y marca platos agotados desde la cocina |
+| 1 oct | Rediseño de la pantalla de la cocina con la marca Ronda |
+| 2 oct | Una foto por plato, desde la pantalla de la cocina |
 
 ## Lo que falta
 

@@ -61,6 +61,15 @@ const ACTIONS = [
   [/^\/kds\/api\/sessions\/([^/]+)\/close$/, 'staff_close_session', () => []],
 ]
 
+// What the bytes say they are, not what the request claims. Both versions of a
+// photo must agree. Nothing is decoded: the staff browser already shrank them.
+function imageType(buf) {
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg'
+  if (buf.length >= 8 && buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png'
+  if (buf.length >= 12 && buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return 'image/webp'
+  return null
+}
+
 const answer = (r) =>
   r.status !== 'rejected' ? 200 : r.reason?.startsWith('unknown_') ? 404 : 409
 
@@ -154,8 +163,10 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
           }
           if (req.method === 'GET') {
             const { rows } = await pool.query(
-              `select id, name, category, unit_price, tax_rate, is_available, sold_out
-                 from products where venue_id = $1 order by category nulls last, name`, [venueId])
+              `select p.id, p.name, p.category, p.unit_price, p.tax_rate, p.is_available, p.sold_out,
+                      ph.hash as photo
+                 from products p left join product_photos ph on ph.product_id = p.id
+                where p.venue_id = $1 order by p.category nulls last, p.name`, [venueId])
             return reply(200, { products: rows })
           }
           if (req.method === 'POST') {
@@ -190,6 +201,25 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
             }
           }
         }
+        const photo = /^\/kds\/api\/venues\/([^/]+)\/products\/([^/]+)\/photo$/.exec(url.pathname)
+        if (photo && (req.method === 'PUT' || req.method === 'DELETE')) {
+          if (!UUID.test(photo[1]) || !UUID.test(photo[2])) return reply(400, { error: 'bad_id' })
+          if (req.method === 'DELETE') {
+            const r = await one(`select staff_remove_photo($1, $2) as r`, [photo[1], photo[2]])
+            return reply(answer(r), r)
+          }
+          let body
+          try { body = JSON.parse(await readBody(req, 1_200_000)) } catch (err) {
+            return reply(err.status ?? 400, { error: err.status ? 'too_large' : 'not_json' })
+          }
+          const thumb = Buffer.from(String(body.thumb ?? ''), 'base64')
+          const large = Buffer.from(String(body.large ?? ''), 'base64')
+          const type = imageType(thumb)
+          if (!type || imageType(large) !== type) return reply(415, { error: 'not_an_image' })
+          const r = await one(`select staff_set_photo($1, $2, $3, $4, $5) as r`, [photo[1], photo[2], thumb, large, type])
+          return reply(answer(r), r)
+        }
+
         const soldOut = /^\/kds\/api\/venues\/([^/]+)\/products\/([^/]+)\/sold-out$/.exec(url.pathname)
         if (soldOut && req.method === 'POST') {
           if (!UUID.test(soldOut[1]) || !UUID.test(soldOut[2])) return reply(400, { error: 'bad_id' })
@@ -264,6 +294,17 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
         }
 
         return reply(404, { error: 'not_found' })
+      }
+
+      // -- Dish photos, for the Carta panel. Not secret: diners see them too.
+      const photoFile = /^\/kds\/photos\/([0-9a-f-]{36})\/([0-9a-f]{16})\/(thumb|large)\.jpg$/.exec(url.pathname)
+      if (photoFile && req.method === 'GET') {
+        const { rows } = await pool.query(
+          `select ${photoFile[3] === 'thumb' ? 'thumb' : 'large'} as bytes, content_type
+             from product_photos where product_id = $1 and hash = $2`, [photoFile[1], photoFile[2]])
+        if (rows.length === 0) return reply(404, { error: 'not_found' })
+        res.writeHead(200, { 'content-type': rows[0].content_type, 'cache-control': 'public, max-age=31536000, immutable' })
+        return res.end(rows[0].bytes)
       }
 
       // -- The screen itself: static, no data -----------------------------

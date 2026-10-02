@@ -240,6 +240,13 @@ dialog.wide { width: min(46rem, 94vw); max-height: 88vh; }
 .dish.out .name { color: var(--faint); text-decoration: line-through; }
 .dish .price { color: var(--muted); }
 .dish button { padding: .45rem .8rem; font-size: .88rem; min-width: 9rem; }
+.dish .thumb {
+  width: 3rem; height: 3rem; flex: none; border-radius: var(--radius-sm); object-fit: cover;
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line);
+}
+.dish .thumb.empty { display: grid; place-items: center; color: var(--faint); font-size: .7rem; font-weight: 700; }
+.dish .photo-actions { display: flex; gap: .35rem; }
+.dish .photo-actions button { min-width: 0; }
 #menu-preview {
   border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; display: grid; gap: .5rem;
   background: var(--warn-soft); box-shadow: inset 0 0 0 1.5px rgba(231, 197, 102, .5);

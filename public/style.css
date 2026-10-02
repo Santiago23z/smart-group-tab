@@ -164,6 +164,21 @@ header .eyebrow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis
 }
 .row button.add:active { background: var(--accent); color: var(--accent-ink); }
 
+/* A dish photo: fixed size so nothing jumps while it loads lazily. */
+.row button.thumb {
+  width: 3.5rem; height: 3.5rem; padding: 0; flex: none; border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.row button.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.photo-view {
+  position: fixed; inset: 0; z-index: 40; border-radius: 0; padding: 1.2rem;
+  display: grid; place-items: center;
+  background: rgba(6, 4, 2, .88); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  animation: fade .2s var(--ease);
+}
+.photo-view img { max-width: 100%; max-height: 80dvh; border-radius: var(--radius); box-shadow: var(--shadow); }
+
 /* Cart ------------------------------------------------------------------- */
 #cart-list { display: grid; gap: .6rem; margin-top: 1rem; }
 .row.item {

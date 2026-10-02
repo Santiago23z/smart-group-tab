@@ -136,7 +136,15 @@ function render() {
   renderBar(round)
 }
 
+// The page polls every 2 s; redrawing the menu each time would re-decode every
+// photo and make them flicker. Only redraw when something on it changed.
+let menuKey = null
+
 function renderMenu() {
+  const key = JSON.stringify(state.menu.map((p) => [p.id, p.name, p.category, p.unit_price, p.tax_rate, p.photo]))
+  if (key === menuKey) return
+  menuKey = key
+
   const byCategory = {}
   for (const p of state.menu) (byCategory[p.category ?? 'Carta'] ??= []).push(p)
 
@@ -145,6 +153,10 @@ function renderMenu() {
       <p class="cat">${escape(category)}</p>
       ${items.map((p) => `
         <div class="row">
+          ${p.photo ? `
+            <button class="thumb" data-photo="${p.id}/${p.photo}" aria-label="Ver foto de ${escape(p.name)}">
+              <img src="/photos/${p.id}/${p.photo}/thumb.jpg" alt="" width="56" height="56" loading="lazy" decoding="async">
+            </button>` : ''}
           <div class="grow">
             <div class="name">${escape(p.name)}</div>
             <div class="sub">${money(p.unit_price)}${Number(p.tax_rate) ? ' + imp.' : ''}</div>
@@ -401,6 +413,12 @@ document.addEventListener('click', async (e) => {
     }
 
     if (btn.dataset.share) openSharing(btn.dataset.share)
+
+    if (btn.dataset.photo) {
+      $('photo-large').src = `/photos/${btn.dataset.photo}/large.jpg`
+      $('photo-view').hidden = false
+    }
+    if (btn.id === 'photo-view') $('photo-view').hidden = true
 
     if (btn.dataset.close) {
       const r = await api('/api/round/close', {

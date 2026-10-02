@@ -456,3 +456,37 @@ test('an open tab: two rounds, the bill, one payment each, and the table closes'
     `select s.status from sessions s join tables t on t.id = s.table_id where t.qr_token = $1`, [qr])
   expect(s.status).toBe('closed')
 })
+
+// Dish photos: shown small, downloaded once, enlarged on tap.
+const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+
+test('a dish photo shows small, is downloaded once across polls, and opens large on tap', async ({ page }) => {
+  const qr = await freshOpenTabTable('photo')
+  const [{ id: dishId, venue_id: venueId }] = await sql(
+    `select p.id, p.venue_id from products p join tables t on t.venue_id = p.venue_id
+      where t.qr_token = $1 and p.name = 'Cerveza OT'`, [qr])
+  await sql(`select staff_set_photo($1, $2, $3, $3, 'image/png')`, [venueId, dishId, PNG_1PX])
+
+  const thumbs = []
+  page.on('request', (r) => { if (r.url().includes('/photos/') && r.url().endsWith('thumb.jpg')) thumbs.push(r.url()) })
+
+  await joinAs(page, qr, 'Ana')
+  const beer = page.locator('#menu-list .row', { hasText: 'Cerveza OT' })
+  const fries = page.locator('#menu-list .row', { hasText: 'Papas OT' })
+  await expect(beer.locator('img')).toHaveAttribute('src', new RegExp(`/photos/${dishId}/[0-9a-f]{16}/thumb\\.jpg`))
+  await expect(fries.locator('img')).toHaveCount(0)
+
+  // Mark the very element on screen; a redraw would replace it (and re-decode,
+  // which is the flicker), even when the browser's cache saves the download.
+  await beer.locator('img').evaluate((img) => { img.dataset.probe = 'same-element' })
+  await settled(page)
+  await settled(page)
+  await expect(beer.locator('img')).toHaveAttribute('data-probe', 'same-element')
+  expect(thumbs.length).toBe(1)
+
+  await beer.locator('button.thumb').tap()
+  await expect(page.locator('#photo-view')).toBeVisible()
+  await expect(page.locator('#photo-large')).toHaveAttribute('src', /large\.jpg$/)
+  await page.locator('#photo-view').tap()
+  await expect(page.locator('#photo-view')).toBeHidden()
+})

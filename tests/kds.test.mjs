@@ -465,4 +465,41 @@ test('a venue manages its own menu from the kitchen screen', async (t) => {
   })
 })
 
+test('dish photos from the kitchen screen', async (t) => {
+  const kds = await startKds()
+  t.after(() => kds.close())
+  const venue = await createVenue(pool, { products: [{ price: 34_000 }] })
+  const dish = venue.menu[0].id
+  const path = `/kds/api/venues/${venue.venueId}/products/${dish}/photo`
+  const put = (body) => kds.staff(path, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  const b64 = (buf) => buf.toString('base64')
+  const jpeg = (n) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(n, 3)])
+  const photoOf = async () => (await (await kds.staff(`/kds/api/venues/${venue.venueId}/menu`)).json()).products.find((p) => p.id === dish).photo
+
+  await t.test('a JPEG is stored and its hash shows in the menu', async () => {
+    const res = await put({ thumb: b64(jpeg(5000)), large: b64(jpeg(60_000)) })
+    assert.equal(res.status, 200)
+    const { hash } = await res.json()
+    assert.equal(await photoOf(), hash)
+  })
+
+  await t.test('not an image, or too big, is refused and the photo stays', async () => {
+    const before = await photoOf()
+    const text = await put({ thumb: b64(Buffer.from('hola, no soy una foto')), large: b64(jpeg(100)) })
+    assert.equal(text.status, 415)
+    const mixed = await put({ thumb: b64(jpeg(100)), large: b64(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.alloc(100)])) })
+    assert.equal(mixed.status, 415, 'both versions must be the same format')
+    const big = await put({ thumb: b64(jpeg(100)), large: b64(jpeg(800_000)) })
+    assert.ok([409, 413].includes(big.status), String(big.status))
+    assert.equal(await photoOf(), before)
+  })
+
+  await t.test('removing it, and no token, no photo', async () => {
+    assert.equal((await kds.staff(path, { method: 'DELETE' })).status, 200)
+    assert.equal(await photoOf(), null)
+    const res = await fetch(`${kds.base}${path}`, { method: 'PUT', headers: { authorization: `Bearer ${DISPATCH}`, 'content-type': 'application/json' }, body: '{}' })
+    assert.equal(res.status, 401)
+  })
+})
+
 test.after(() => pool.end())

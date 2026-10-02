@@ -396,3 +396,28 @@ test('a valid menu file shows a preview, and "Aplicar" writes it', async ({ page
     ['Brownie E2E', 9000, true], ['Ceviche E2E', 36000, true], ['Limonada E2E', 9000, false],
   ])
 })
+
+// A real (tiny) PNG: the browser must decode it to shrink it.
+const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+
+test('a photo attached from the Carta panel is shrunk to JPEG, stored and shown', async ({ page }) => {
+  const { venueId } = await venueWithMenu('foto')
+  await openMenuPanel(page, venueId)
+  const dish = page.locator('.dish', { hasText: 'Ceviche E2E' })
+  await expect(dish).toContainText('sin foto')
+
+  const chooser = page.waitForEvent('filechooser')
+  await dish.getByRole('button', { name: 'Foto' }).click()
+  await (await chooser).setFiles({ name: 'ceviche.png', mimeType: 'image/png', buffer: PNG_1PX })
+
+  await expect(dish.locator('img.thumb')).toBeVisible({ timeout: 8000 })
+  await expect(dish.getByRole('button', { name: 'Cambiar foto' })).toBeVisible()
+  const [ph] = await sql(
+    `select ph.content_type, octet_length(ph.thumb) as t from product_photos ph
+       join products p on p.id = ph.product_id where p.venue_id = $1 and p.name = 'Ceviche E2E'`, [venueId])
+  expect(ph.content_type).toBe('image/jpeg')
+  expect(ph.t).toBeGreaterThan(0)
+
+  await dish.getByRole('button', { name: 'Quitar' }).click()
+  await expect(dish).toContainText('sin foto', { timeout: 8000 })
+})

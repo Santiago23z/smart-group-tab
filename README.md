@@ -495,6 +495,15 @@ its own flag (`products.sold_out`), not `is_available`, so an upload mid-service
 never brings back what ran out. The staff token still sees every venue; with more
 than one, the panel asks which.
 
+Each dish can carry one photo, attached from the same panel. The staff browser
+shrinks it (a 240 px square thumbnail and an 800 px version, JPEG) before
+sending, so the server never decodes images and needs no image library; both
+live in `product_photos`, apart from the menu rows. Diners get them from
+`/photos/<dish>/<hash>/thumb.jpg`: the hash is part of the address, so it is
+cached forever (`immutable`) and a replaced photo can never show stale; an old
+hash is a 404. The diner menu is only redrawn when it changes, so photos neither
+flicker nor download again on each poll. A menu upload never touches photos.
+
 ## The invariants
 
 Everything in this repo is scaffolding to hold up five statements. Each one gets

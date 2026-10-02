@@ -119,7 +119,9 @@ async function tableState(sessionId, participantId) {
        'menu', (
          select coalesce(jsonb_agg(jsonb_build_object(
                   'id', pr.id, 'name', pr.name, 'category', pr.category,
-                  'unit_price', pr.unit_price, 'tax_rate', pr.tax_rate)
+                  'unit_price', pr.unit_price, 'tax_rate', pr.tax_rate,
+                  -- The photo's address part; null when the dish has none.
+                  'photo', (select ph.hash from product_photos ph where ph.product_id = pr.id))
                  order by pr.category nulls last, pr.name), '[]'::jsonb)
            -- On the menu and not sold out tonight.
            from products pr where pr.venue_id = se.venue_id and pr.is_available and not pr.sold_out),
@@ -323,6 +325,23 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/state') {
       const state = await tableState(url.searchParams.get('session_id'), url.searchParams.get('participant_id'))
       return state ? reply(200, state) : reply(404, { error: 'unknown_session' })
+    }
+
+    // A dish photo. The hash is part of the address, so the bytes behind an
+    // address never change and phones may keep them forever; an old hash is a
+    // 404, never the new image under the old address.
+    const photo = /^\/photos\/([0-9a-f-]{36})\/([0-9a-f]{16})\/(thumb|large)\.jpg$/.exec(url.pathname)
+    if (photo && req.method === 'GET') {
+      const { rows } = await pool.query(
+        `select ${photo[3] === 'thumb' ? 'thumb' : 'large'} as bytes, content_type
+           from product_photos where product_id = $1 and hash = $2`, [photo[1], photo[2]])
+      if (rows.length === 0) return reply(404, { error: 'not_found' })
+      res.writeHead(200, {
+        'content-type': rows[0].content_type,
+        'cache-control': 'public, max-age=31536000, immutable',
+        'content-length': rows[0].bytes.length,
+      })
+      return res.end(rows[0].bytes)
     }
 
     const route = ROUTES[`${req.method} ${url.pathname}`]

@@ -40,9 +40,9 @@ async function api(path, init = {}) {
 }
 
 /** A staff action. A refusal comes back as {status:'rejected', reason}, to be shown. */
-async function act(path, body) {
+async function act(path, body, method = 'POST') {
   const res = await fetch(path, {
-    method: 'POST',
+    method,
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify(body ?? {}),
   })
@@ -407,7 +407,20 @@ async function renderMenu() {
   $('menu-list').replaceChildren(...Object.entries(groups).flatMap(([cat, items]) => [
     el('p', { class: 'menu-cat' }, cat),
     ...items.map((p) => el('div', { class: `dish${p.sold_out ? ' out' : ''}`, 'data-product': p.id },
+      p.photo
+        ? el('img', { class: 'thumb', src: `/kds/photos/${p.id}/${p.photo}/thumb.jpg`, alt: '' })
+        : el('span', { class: 'thumb empty' }, 'sin foto'),
       el('span', { class: 'name' }, p.name),
+      el('div', { class: 'photo-actions' },
+        el('button', { class: 'secondary', onclick: () => pickPhoto(p.id) }, p.photo ? 'Cambiar foto' : 'Foto'),
+        p.photo && el('button', {
+          class: 'text',
+          onclick: async () => {
+            await fetch(`/kds/api/venues/${venueId}/products/${p.id}/photo`,
+              { method: 'DELETE', headers: { authorization: `Bearer ${token}` } })
+            await renderMenu()
+          },
+        }, 'Quitar')),
       el('span', { class: 'price' }, money(p.unit_price)),
       el('button', {
         class: p.sold_out ? '' : 'secondary',
@@ -457,6 +470,60 @@ $('menu-file').addEventListener('change', async (e) => {
 })
 
 $('open-menu').addEventListener('click', openMenu)
+
+// ---------------------------------------------------------------------------
+// Dish photos: shrunk here, on the tablet, before anything is sent. A 4 MB
+// phone photo becomes a ~20 KB thumbnail and a ~150 KB larger version, so the
+// server never decodes images and diners on bad wifi download almost nothing.
+// ---------------------------------------------------------------------------
+let photoTarget = null
+
+function pickPhoto(productId) {
+  photoTarget = productId
+  $('photo-file').click()
+}
+
+/** Draws the image into a canvas no larger than `max` (square-cropped if asked) → JPEG base64. */
+async function shrink(bitmap, max, square) {
+  const side = Math.min(bitmap.width, bitmap.height)
+  const [sx, sy, sw, sh] = square
+    ? [(bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side]
+    : [0, 0, bitmap.width, bitmap.height]
+  const scale = Math.min(1, max / Math.max(sw, sh))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(sw * scale))
+  canvas.height = Math.max(1, Math.round(sh * scale))
+  canvas.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8))
+  const dataUrl = await new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.readAsDataURL(blob)
+  })
+  return dataUrl.slice(dataUrl.indexOf(',') + 1)
+}
+
+$('photo-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0]
+  e.target.value = ''
+  if (!file || !photoTarget) return
+  const row = document.querySelector(`.dish[data-product="${photoTarget}"]`)
+  const button = row?.querySelector('.photo-actions button')
+  if (button) { button.disabled = true; button.textContent = 'Procesando…' }
+
+  let bitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    notice('Esa imagen no se puede abrir aquí. Usá una foto JPG o PNG.')
+    return renderMenu()
+  }
+  const [thumb, large] = [await shrink(bitmap, 240, true), await shrink(bitmap, 800, false)]
+  const r = await act(`/kds/api/venues/${venueId}/products/${photoTarget}/photo`, { thumb, large }, 'PUT')
+  if (r.status !== 'updated') notice('No se pudo guardar la foto.')
+  photoTarget = null
+  await renderMenu()
+})
 
 let writeOffTarget = null
 
