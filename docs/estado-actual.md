@@ -38,6 +38,9 @@ cambie después.
    momento no se puede pedir más.
 7. **Pagar la cuenta** (en "cuenta abierta"). Cada persona paga **todo lo suyo de todas las rondas
    en un solo pago**, o alguien cubre el resto de la mesa.
+   - **¿Prefiere pagar en efectivo o con datáfono?** En la misma hoja de pago toca **"En
+     efectivo"** o **"Con datáfono"**. No se cobra nada todavía: la cocina ve el aviso y el mesero
+     va a la mesa. Mientras tanto la barra dice "Esperando al mesero" y se puede **Cancelar**.
 8. **La mesa se cierra sola** cuando ya no queda nada por pagar. El siguiente grupo que escanee
    el QR abre una mesa nueva.
 
@@ -60,6 +63,10 @@ Si un pago llega tarde y lo que pagaba ya lo pagó otra persona, la plata no se 
 
 Una sola pantalla para el personal, protegida con un enlace secreto:
 
+- **Quieren pagar:** arriba de todo, quién pidió desde su celular pagar en efectivo o datáfono,
+  cuánto, en qué mesa y hace cuánto. **Cobrar en caja** abre el cobro ya listo para esa persona y
+  ese método; **Descartar** quita el aviso. El aviso se va solo si esa parte se paga por cualquier
+  camino (incluso Wompi).
 - **Pedidos:** lo que hay que preparar, con el tiempo de espera y un botón "Listo".
 - **Mesas que necesitan a alguien:** alertas con su motivo y el botón que lo resuelve.
   - Plata que no se pudo aplicar → **Devolver** (se registra; la plata se devuelve a mano, por
@@ -209,6 +216,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 1 oct | El restaurante sube su carta y marca platos agotados desde la cocina |
 | 1 oct | Rediseño de la pantalla de la cocina con la marca Ronda |
 | 2 oct | Una foto por plato, desde la pantalla de la cocina |
+| 2 oct | El comensal avisa desde el celular que paga en efectivo o datáfono |
 
 ## Lo que falta
 

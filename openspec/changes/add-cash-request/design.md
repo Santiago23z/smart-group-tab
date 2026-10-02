@@ -14,7 +14,7 @@ cash|card_terminal, created_at, resolved_at, resolution 'cancelled'|'dismissed'|
 partial unique index on `(participant_id) where resolved_at is null`. A new request resolves the
 old one as `cancelled` first.
 
-**D2 — The amount is derived, never stored.** `cash_request_amount(request)`: if the session asked
+**D2 — The amount is derived, never stored.** `cash_request_target(session, participant, scope)`: if the session asked
 for the bill, the tab (the participant's unpaid shares, or all of it for `rest`); otherwise the
 free shares of rounds in `locked_for_payment` (same split). A request whose amount is 0 is not
 listed — so any payment route ends it without code in each route. Held shares count as unpaid

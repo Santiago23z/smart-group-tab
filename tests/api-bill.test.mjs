@@ -74,3 +74,25 @@ test('the tab cannot be reserved before the bill', async () => {
     assert.deepEqual([r.status, r.reason], ['rejected', 'bill_not_requested'])
   } finally { await api.stop() }
 })
+
+test('a diner asks to pay in cash, sees the request, and cancels it', async () => {
+  const api = await startApi()
+  try {
+    const venue = await createVenue(pool, { serviceMode: 'open_tab', products: [{ price: 12_000 }] })
+    const ana = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Ana' })
+    await addItem(pool, { sessionId: ana.session_id, participantId: ana.participant_id, productId: venue.menu[0].id })
+    await closeRound(pool, { sessionId: ana.session_id })
+    await api.post('/api/bill', { session_id: ana.session_id, participant_id: ana.participant_id })
+    const who = { session_id: ana.session_id, participant_id: ana.participant_id }
+    const state = () => api.get(`/api/state?session_id=${ana.session_id}&participant_id=${ana.participant_id}`)
+
+    assert.equal((await state()).my_cash_request, null)
+    const r = await api.post('/api/cash-request', { ...who, scope: 'mine', method: 'cash' })
+    assert.deepEqual([r.status, Number(r.amount)], ['requested', 12_000])
+    const open = (await state()).my_cash_request
+    assert.deepEqual([open.id, open.method, open.scope, Number(open.amount)], [r.id, 'cash', 'mine', 12_000])
+
+    assert.equal((await api.post('/api/cash-request/cancel', who)).status, 'cancelled')
+    assert.equal((await state()).my_cash_request, null)
+  } finally { await api.stop() }
+})

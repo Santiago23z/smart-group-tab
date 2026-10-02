@@ -36,7 +36,11 @@
     </section>
 
     <aside class="alerts">
-      <header><h2>Mesas que necesitan a alguien</h2><span class="count" id="alert-count"></span></header>
+      <!-- Diners who asked, from their phone, to pay the waiter. Hidden when none. -->
+      <header id="cash-request-header" hidden><h2>Quieren pagar</h2><span class="count" id="cash-request-count"></span></header>
+      <ul id="cash-request-list" hidden></ul>
+
+      <header id="alert-header"><h2>Mesas que necesitan a alguien</h2><span class="count" id="alert-count"></span></header>
       <p id="no-alerts" class="muted empty" hidden>Todo en orden.</p>
       <ul id="alert-list"></ul>
 

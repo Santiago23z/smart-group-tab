@@ -90,6 +90,14 @@
       <button id="pay-confirm">Pagar</button>
     </div>
     <p class="error" id="pay-error" hidden></p>
+    <!-- Or pay the waiter: asking moves no money, it only calls them over. -->
+    <div class="cash-options" id="cash-options">
+      <p class="muted tiny">¿Preferís pagarle al mesero?</p>
+      <div class="sheet-actions">
+        <button class="ghost" data-cash="cash">En efectivo</button>
+        <button class="ghost" data-cash="card_terminal">Con datáfono</button>
+      </div>
+    </div>
   </div>
 </div>
 

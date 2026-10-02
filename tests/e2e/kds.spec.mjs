@@ -421,3 +421,56 @@ test('a photo attached from the Carta panel is shrunk to JPEG, stored and shown'
   await dish.getByRole('button', { name: 'Quitar' }).click()
   await expect(dish).toContainText('sin foto', { timeout: 8000 })
 })
+
+// ---------------------------------------------------------------------------
+// "Voy a pagar en efectivo", from the diner's phone
+// ---------------------------------------------------------------------------
+test('a diner asks to pay in cash, the kitchen sees it, collects it, and both screens update', async ({ page, browser }) => {
+  // The list is the whole venue's: requests left open by other tests would keep it showing.
+  await sql(`update cash_requests set resolved_at = now(), resolution = 'dismissed' where resolved_at is null`)
+  const qr = await freshTable('kds-cash-request')
+  const diner = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage()
+  await diner.goto(`http://127.0.0.1:${process.env.E2E_PORT ?? 8791}/t/${qr}`)
+  await diner.fill('#nickname', 'Lucía')
+  await diner.click('#join-form button[type=submit]')
+  await diner.locator('#menu-list .row', { hasText: 'Hamburguesa de la casa' }).first().locator('button[data-add]').click()
+  await diner.locator('.tabs button', { hasText: 'Cuenta' }).click()
+  await diner.locator('button[data-close="as_ordered"]').click()
+  await expect(diner.locator('#bar')).toBeVisible()
+  const owed = (await diner.locator('#bar-amount').textContent()).trim()
+
+  // Asks for cash, changes their mind, asks again.
+  const ask = async (method, word) => {
+    await diner.locator('#bar-action').click()
+    await diner.locator(`button[data-cash="${method}"]`).click()
+    await expect(diner.locator('#bar-label')).toHaveText(`Esperando al mesero · ${word}`)
+  }
+  await ask('cash', 'efectivo')
+  await openScreen(page)
+  const [{ label }] = await sql(`select label from tables where qr_token = $1`, [qr])
+  const request = page.locator('#cash-request-list li', { hasText: `${label} · Lucía` })
+  await expect(request).toContainText(`${owed} de la ronda, en efectivo`, { timeout: 8000 })
+
+  await diner.locator('#bar-action').click()
+  await expect(diner.locator('#bar-action')).toHaveText('Pagar lo mío')
+  await expect(request).toHaveCount(0, { timeout: 8000 })
+  await ask('card_terminal', 'datáfono')
+  await expect(request).toContainText('en datáfono', { timeout: 8000 })
+
+  // The waiter collects it: the dialog is already set to Lucía and the terminal.
+  await request.getByRole('button', { name: 'Cobrar en caja' }).click({ timeout: 8000 })
+  const dialog = page.locator('#cash-dialog')
+  await expect(dialog.locator('label', { hasText: 'Lucía' }).locator('input')).toBeChecked()
+  await expect(dialog.locator('select[name="method"]')).toHaveValue('card_terminal')
+  await dialog.locator('button[type="submit"]').click()
+  await expect(page.locator('#confirm-title')).toContainText(`${owed} en datáfono`)
+  await page.locator('#confirm-yes').click()
+
+  await expect(request).toHaveCount(0, { timeout: 8000 })
+  await expect(page.locator('#cash-request-header')).toBeHidden()
+  await expect(diner.locator('#bar')).toBeHidden({ timeout: 8000 })
+  const [s] = await sql(
+    `select r.status from rounds r join tables t on true join sessions se on se.id = r.session_id and se.table_id = t.id
+      where t.qr_token = $1`, [qr])
+  expect(s.status).toBe('paid_and_dispatched')
+})

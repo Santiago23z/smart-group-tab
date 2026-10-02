@@ -325,13 +325,45 @@ const METHOD = { cash: 'efectivo', card_terminal: 'datáfono' }
 let cashTarget = null
 
 /**
+ * "Quieren pagar": a diner asked from their phone. The amount is what that
+ * part still owes; whatever is held is someone paying it in Wompi right now,
+ * which the cash dialog would not take, so it is not offered.
+ */
+function renderCashRequests(requests) {
+  const shown = requests.length > 0
+  $('cash-request-header').hidden = !shown
+  $('cash-request-list').hidden = !shown
+  $('alert-header').classList.toggle('sub', shown)
+  $('cash-request-count').textContent = shown ? String(requests.length) : ''
+  $('cash-request-list').replaceChildren(...requests.map((r) => {
+    const who = r.participant_id ? r.nickname : `${r.nickname}, por lo que falta`
+    const free = Number(r.amount) - Number(r.held)
+    const target = r.target_scope === 'round' ? 'la ronda' : 'la cuenta'
+    return el('li', { class: 'collection call', 'data-cash-request': r.id },
+      el('span', { class: 'collection-head' }, `${r.table} · ${who}`),
+      el('span', {}, `${money(r.amount)} de ${target}, en ${METHOD[r.method]} · hace `,
+        el('span', { class: 'ticket-wait', 'data-since': r.created_at }, waited(r.created_at).text)),
+      Number(r.held) > 0 && el('span', { class: 'muted' }, `${money(r.held)} se está pagando en Wompi ahora.`),
+      el('div', { class: 'actions' },
+        free > 0 && el('button', {
+          onclick: () => openCash({
+            scope: r.target_scope, targetId: r.target_id, table: r.table, method: r.method,
+            choices: [{ participantId: r.participant_id, label: r.participant_id ? r.nickname : 'Todo lo que falta', amount: free }],
+          }),
+        }, 'Cobrar en caja'),
+        el('button', { class: 'secondary', onclick: () => run(`/kds/api/cash-requests/${r.id}/dismiss`) }, 'Descartar')))
+  }))
+}
+
+/**
  * choices: [{ participantId (null = the rest), label, amount }]. The amount is
  * shown, never typed: the database charges exactly what the part adds up to.
  */
-function openCash({ scope, targetId, table, choices }) {
+function openCash({ scope, targetId, table, choices, method = 'cash' }) {
   cashTarget = { scope, targetId, table, choices }
   const form = $('cash-form')
   form.reset()
+  form.method.value = method
   $('cash-title').textContent = `Cobrar en caja · ${table}`
   $('cash-parts').replaceChildren(...choices.map((c, i) =>
     el('label', {},
@@ -603,6 +635,7 @@ async function refresh() {
     last = state
     $('offline').hidden = true
     renderTickets(state.tickets)
+    renderCashRequests(state.cash_requests)
     renderAlerts(state.alerts)
     renderCollections(state.collections)
     renderOpenTables(state.open_tables)

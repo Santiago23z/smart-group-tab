@@ -503,3 +503,36 @@ test('dish photos from the kitchen screen', async (t) => {
 })
 
 test.after(() => pool.end())
+
+test('a diner asking to pay in cash shows on the kitchen screen', async (t) => {
+  const kds = await startKds()
+  t.after(() => kds.close())
+  const ask = async (fx, i, scope, method) => (await pool.query(
+    `select request_cash_payment($1, $2, $3, $4) as r`, [fx.sessionId, fx.participantIds[i], scope, method])).rows[0].r
+  const listed = async (fx) =>
+    (await (await kds.staff('/kds/api/state')).json()).cash_requests.filter((c) => c.session_id === fx.sessionId)
+
+  await t.test('listed with who, how much and how, and collecting it ends it', async () => {
+    const fx = await createFixture(pool, { participants: 2, items: [{ price: 34_000, owner: 0 }, { price: 9_000, owner: 1 }] })
+    await ask(fx, 0, 'mine', 'cash')
+    const [req] = await listed(fx)
+    assert.deepEqual([req.nickname, Number(req.amount), req.method, req.target_scope, req.target_id, req.participant_id],
+      ['p0', 34_000, 'cash', 'round', fx.roundId, fx.participantIds[0]])
+
+    const paid = await kds.staff('/kds/api/manual-payments', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ scope: req.target_scope, target_id: req.target_id, participant_id: req.participant_id, method: req.method }),
+    })
+    assert.equal(paid.status, 200)
+    assert.deepEqual(await listed(fx), [])
+  })
+
+  await t.test('dismissed by staff; a second dismissal is 404', async () => {
+    const fx = await createFixture(pool, { participants: 1, items: [{ price: 5_000 }] })
+    const { id } = await ask(fx, 0, 'rest', 'card_terminal')
+    assert.equal((await kds.staff(`/kds/api/cash-requests/${id}/dismiss`, { method: 'POST' })).status, 200)
+    assert.deepEqual(await listed(fx), [])
+    assert.equal((await kds.staff(`/kds/api/cash-requests/${id}/dismiss`, { method: 'POST' })).status, 404)
+    assert.equal((await fetch(`${kds.base}/kds/api/cash-requests/${id}/dismiss`, { method: 'POST' })).status, 401)
+  })
+})

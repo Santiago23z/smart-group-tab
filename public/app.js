@@ -63,7 +63,9 @@ const REASONS = {
   wompi_configured: 'Los pagos simulados están apagados: esta mesa cobra con Wompi.',
   draft_not_empty: 'Primero enviá o quitá lo que está en el carrito.',
   bill_not_requested: 'Primero pedí la cuenta.',
+  nothing_to_pay: 'No queda nada por pagar.',
 }
+const METHOD = { cash: 'efectivo', card_terminal: 'datáfono' }
 const explain = (r) => REASONS[r?.reason] ?? r?.reason ?? 'No se pudo.'
 
 // ---------------------------------------------------------------------------
@@ -348,6 +350,17 @@ function renderBar(round) {
     return
   }
 
+  // Asked to pay the waiter: the bar waits for them, and can take it back.
+  const asked = state.my_cash_request
+  if (asked) {
+    bar.hidden = false
+    $('bar-label').textContent = `Esperando al mesero · ${METHOD[asked.method]}`
+    $('bar-amount').textContent = money(asked.amount)
+    $('bar-action').textContent = 'Cancelar'
+    $('bar-action').dataset.action = 'cancel-cash'
+    return
+  }
+
   // Once the bill is asked for, the bar pays the tab, not a round.
   if (billRequested() && tabTotal() > 0) {
     const mine = myFreeTab()
@@ -438,7 +451,11 @@ document.addEventListener('click', async (e) => {
     }
     if (btn.id === 'start-over') forget('Escaneaste la mesa de nuevo. Elegí tu apodo.')
 
-    if (btn.id === 'bar-action') onBarAction()
+    if (btn.id === 'bar-action') {
+      if (btn.dataset.action === 'cancel-cash') await cancelCashRequest()
+      else onBarAction()
+    }
+    if (btn.dataset.cash) await askCashPayment(btn.dataset.cash)
     if (btn.id === 'sheet-cancel') $('sheet').hidden = true
     if (btn.id === 'sheet-save') await saveSharing()
     if (btn.id === 'pay-cancel') $('pay').hidden = true
@@ -502,8 +519,29 @@ function onBarAction() {
     : 'Se aparta para vos por 5 minutos mientras pagás.'
   $('tip').value = reservation ? reservation.tip_amount || 0 : 0
   $('tip').disabled = Boolean(reservation)
+  // Already paying in Wompi: offering the waiter too would only confuse.
+  $('cash-options').hidden = Boolean(reservation)
   $('pay-error').hidden = true
   $('pay').hidden = false
+}
+
+async function askCashPayment(method) {
+  const r = await api('/api/cash-request', {
+    session_id: me.sessionId,
+    participant_id: me.participantId,
+    scope: $('bar-action').dataset.action === 'my_items' ? 'mine' : 'rest',
+    method,
+  })
+  if (r.status === 'rejected') return payError(explain(r))
+  $('pay').hidden = true
+  await refresh()
+  toast(`Listo, el mesero viene a cobrarte en ${METHOD[method]}`)
+}
+
+async function cancelCashRequest() {
+  await api('/api/cash-request/cancel', { session_id: me.sessionId, participant_id: me.participantId })
+  await refresh()
+  toast('Cancelado. Podés pagar desde aquí.')
 }
 
 function payError(message) {

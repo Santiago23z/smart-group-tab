@@ -155,7 +155,15 @@ async function tableState(sessionId, participantId) {
                   case when cr.round_id is null then 'tab' else 'round' end as kind
              from contribution_reservations cr
             where cr.participant_id = $2 and cr.status = 'active' and cr.expires_at > now()
-            order by cr.created_at desc limit 1) x)
+            order by cr.created_at desc limit 1) x),
+       -- "Voy a pagar en efectivo": the open one, while its part still owes.
+       'my_cash_request', (
+         select jsonb_build_object('id', c.id, 'scope', c.scope, 'method', c.method,
+                                   'amount', (tg ->> 'amount')::bigint)
+           from cash_requests c
+           cross join lateral cash_request_target(c.session_id, c.participant_id, c.scope) tg
+          where c.participant_id = $2 and c.session_id = se.id and c.resolved_at is null
+            and (tg ->> 'amount')::bigint > 0)
      ) as r
      from sessions se
      join tables t on t.id = se.table_id
@@ -232,6 +240,20 @@ const ROUTES = {
         body.idempotency_key ?? `web-tab-${Date.now()}-${Math.random()}`,
         body.tip ?? 0,
       ])
+    ),
+
+  // Asks the waiter to come and collect, in cash or on the card terminal.
+  // Moves no money and holds nothing.
+  'POST /api/cash-request': async (body) =>
+    asParticipant(body.participant_id, (c) =>
+      rpc(c, `select request_cash_payment($1,$2,$3,$4) as r`, [
+        body.session_id, body.participant_id, body.scope ?? null, body.method ?? null,
+      ])
+    ),
+
+  'POST /api/cash-request/cancel': async (body) =>
+    asParticipant(body.participant_id, (c) =>
+      rpc(c, `select cancel_cash_request($1,$2) as r`, [body.session_id, body.participant_id])
     ),
 
   'POST /api/payments/intent': async (body, req) => {

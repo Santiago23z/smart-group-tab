@@ -31,6 +31,7 @@ construction. That is the whole design.
 | 7 | Staff actions — refund, cancel, resume, release, retry | **verified under concurrency and in a browser** |
 | 8 | Closing a table — the bill, one payment per person across rounds, write-off | **verified under concurrency and in a browser** |
 | 9 | Cash and card-terminal payments recorded by staff | **verified in a browser** |
+| 10 | Diners ask from the app to pay in cash or on the terminal | **verified in a browser** |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
 finished and verified while the ordering half did not exist at all: there were
@@ -467,6 +468,15 @@ unchanged. The amount is never typed: it is what the part adds up to, plus an
 optional tip. `manual_payments` records method, reference, amount, tip and who it
 was for ("the rest" is paid by the table's staff participant, *Caja*). There is
 no undo; the screen asks to confirm first.
+
+A diner can also **ask** for this from the pay sheet ("En efectivo" / "Con
+datáfono"), for their part or for the rest. `cash_requests` stores who asked,
+how and for which part — never an amount: `cash_request_target` derives it from
+what is still unpaid, so a request stops being listed by itself once that part is
+paid by any route, Wompi included, with no code in any payment path. Asking holds
+no shares. One open request per diner; the diner can cancel it, staff can dismiss
+it, and "Cobrar en caja" from the request opens the dialog already set to that
+person and method.
 
 ## Setting up a real bar
 
