@@ -96,3 +96,16 @@ test('a diner asks to pay in cash, sees the request, and cancels it', async () =
     assert.equal((await state()).my_cash_request, null)
   } finally { await api.stop() }
 })
+
+test('the diner menu carries each dish\'s description', async () => {
+  const api = await startApi()
+  try {
+    const venue = await createVenue(pool, { products: [{ price: 32_000 }, { price: 9_000 }] })
+    const [picada, agua] = venue.menu.map((p) => p.id)
+    await pool.query(`update products set description = 'Chorizo y arepa' where id = $1`, [picada])
+    const ana = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Ana' })
+    const { menu } = await api.get(`/api/state?session_id=${ana.session_id}&participant_id=${ana.participant_id}`)
+    assert.equal(menu.find((p) => p.id === picada).description, 'Chorizo y arepa')
+    assert.equal(menu.find((p) => p.id === agua).description, null)
+  } finally { await api.stop() }
+})

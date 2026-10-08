@@ -536,3 +536,16 @@ test('a diner asking to pay in cash shows on the kitchen screen', async (t) => {
     assert.equal((await fetch(`${kds.base}/kds/api/cash-requests/${id}/dismiss`, { method: 'POST' })).status, 401)
   })
 })
+
+test('a description uploaded from the spreadsheet shows in the Carta panel', async (t) => {
+  const kds = await startKds()
+  t.after(() => kds.close())
+  const venue = await createVenue(pool, { products: [{ price: 32_000 }] })
+  const res = await kds.staff(`/kds/api/venues/${venue.venueId}/menu`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ csv: 'nombre,precio,descripcion\nPicada,32000,"Chorizo, morcilla y arepa"\n', apply: true }),
+  })
+  assert.equal(res.status, 200)
+  const products = (await (await kds.staff(`/kds/api/venues/${venue.venueId}/menu`)).json()).products
+  assert.equal(products.find((p) => p.name === 'Picada').description, 'Chorizo, morcilla y arepa')
+})

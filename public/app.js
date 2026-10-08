@@ -143,7 +143,7 @@ function render() {
 let menuKey = null
 
 function renderMenu() {
-  const key = JSON.stringify(state.menu.map((p) => [p.id, p.name, p.category, p.unit_price, p.tax_rate, p.photo]))
+  const key = JSON.stringify(state.menu.map((p) => [p.id, p.name, p.category, p.unit_price, p.tax_rate, p.photo, p.description]))
   if (key === menuKey) return
   menuKey = key
 
@@ -161,6 +161,7 @@ function renderMenu() {
             </button>` : ''}
           <div class="grow">
             <div class="name">${escape(p.name)}</div>
+            ${p.description ? `<button class="desc"><span>${escape(p.description)}</span></button>` : ''}
             <div class="sub">${money(p.unit_price)}${Number(p.tax_rate) ? ' + imp.' : ''}</div>
           </div>
           <button class="add" data-add="${p.id}" aria-label="Agregar ${escape(p.name)}">+</button>
@@ -427,7 +428,13 @@ document.addEventListener('click', async (e) => {
 
     if (btn.dataset.share) openSharing(btn.dataset.share)
 
+    // Cut to two lines; a tap shows it whole. The menu is not redrawn on polls, so it stays open.
+    if (btn.classList.contains('desc')) btn.classList.toggle('open')
+
     if (btn.dataset.photo) {
+      const dish = state.menu.find((p) => p.id === btn.dataset.photo.split('/')[0])
+      $('photo-name').textContent = dish?.name ?? ''
+      $('photo-desc').textContent = dish?.description ?? ''
       $('photo-large').src = `/photos/${btn.dataset.photo}/large.jpg`
       $('photo-view').hidden = false
     }

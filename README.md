@@ -481,8 +481,10 @@ person and method.
 ## Setting up a real bar
 
 A bar's menu comes from a spreadsheet exported as CSV (columns `categoria`,
-`nombre`, `precio`, `impuesto` — Spanish or English headers, comma or semicolon;
-see `docs/carta-ejemplo.csv`):
+`nombre`, `precio`, `impuesto`, `descripcion` — Spanish or English headers, comma
+or semicolon; see `docs/carta-ejemplo.csv`). The description is optional, up to
+300 characters; a file without that column leaves existing descriptions alone,
+and an empty cell clears one:
 
 ```bash
 npm run venue:load -- --name "La Terraza" --mode open_tab --tables 12 --bar 3 --menu carta.csv

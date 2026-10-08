@@ -397,6 +397,18 @@ test('a valid menu file shows a preview, and "Aplicar" writes it', async ({ page
   ])
 })
 
+test('a description uploaded in the spreadsheet shows under the dish in the Carta panel', async ({ page }) => {
+  const { venueId } = await venueWithMenu('descripcion')
+  await openMenuPanel(page, venueId)
+  await page.locator('#menu-file').setInputFiles({
+    name: 'carta.csv', mimeType: 'text/csv',
+    buffer: Buffer.from('categoria,nombre,precio,descripcion\nCarta,Ceviche E2E,34000,"Camarón, mango y cebolla morada"\nCarta,Limonada E2E,9000,\n'),
+  })
+  await page.locator('#menu-preview').getByRole('button', { name: 'Aplicar' }).click()
+  await expect(page.locator('.dish', { hasText: 'Ceviche E2E' }).locator('.desc')).toHaveText('Camarón, mango y cebolla morada')
+  await expect(page.locator('.dish', { hasText: 'Limonada E2E' }).locator('.desc')).toHaveCount(0)
+})
+
 // A real (tiny) PNG: the browser must decode it to shrink it.
 const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
 

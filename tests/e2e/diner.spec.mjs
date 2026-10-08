@@ -490,3 +490,33 @@ test('a dish photo shows small, is downloaded once across polls, and opens large
   await page.locator('#photo-view').tap()
   await expect(page.locator('#photo-view')).toBeHidden()
 })
+
+test('a dish description shows under its name, opens whole on tap, and goes with the large photo', async ({ page }) => {
+  const qr = await freshOpenTabTable('description')
+  const [{ id: dishId, venue_id: venueId }] = await sql(
+    `select p.id, p.venue_id from products p join tables t on t.venue_id = p.venue_id
+      where t.qr_token = $1 and p.name = 'Cerveza OT'`, [qr])
+  const long = 'Cerveza roja de la casa, servida bien fría en vaso escarchado, con limón y sal al lado. ' +
+    'Pregunta por la de temporada: cambia cada mes y viene en botella de 330 ml.'
+  await sql(`update products set description = $2 where id = $1`, [dishId, long])
+  await sql(`select staff_set_photo($1, $2, $3, $3, 'image/png')`, [venueId, dishId, PNG_1PX])
+
+  await joinAs(page, qr, 'Ana')
+  const beer = page.locator('#menu-list .row', { hasText: 'Cerveza OT' })
+  const desc = beer.locator('button.desc')
+  const text = desc.locator('span')
+  await expect(desc).toHaveText(long)
+  await expect(page.locator('#menu-list .row', { hasText: 'Papas OT' }).locator('button.desc')).toHaveCount(0)
+
+  // Two lines at first; whole after a tap, and still whole after the next polls.
+  const clamped = await text.evaluate((el) => el.clientHeight)
+  expect(await text.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+  await desc.tap()
+  await settled(page)
+  expect(await text.evaluate((el) => el.clientHeight)).toBeGreaterThan(clamped)
+  expect(await text.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true)
+
+  await beer.locator('button.thumb').tap()
+  await expect(page.locator('#photo-name')).toHaveText('Cerveza OT')
+  await expect(page.locator('#photo-desc')).toHaveText(long)
+})

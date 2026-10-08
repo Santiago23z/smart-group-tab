@@ -167,7 +167,7 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
           if (req.method === 'GET') {
             const { rows } = await pool.query(
               `select p.id, p.name, p.category, p.unit_price, p.tax_rate, p.is_available, p.sold_out,
-                      ph.hash as photo
+                      p.description, ph.hash as photo
                  from products p left join product_photos ph on ph.product_id = p.id
                 where p.venue_id = $1 order by p.category nulls last, p.name`, [venueId])
             return reply(200, { products: rows })

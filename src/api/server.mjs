@@ -119,7 +119,7 @@ async function tableState(sessionId, participantId) {
        'menu', (
          select coalesce(jsonb_agg(jsonb_build_object(
                   'id', pr.id, 'name', pr.name, 'category', pr.category,
-                  'unit_price', pr.unit_price, 'tax_rate', pr.tax_rate,
+                  'unit_price', pr.unit_price, 'tax_rate', pr.tax_rate, 'description', pr.description,
                   -- The photo's address part; null when the dish has none.
                   'photo', (select ph.hash from product_photos ph where ph.product_id = pr.id))
                  order by pr.category nulls last, pr.name), '[]'::jsonb)

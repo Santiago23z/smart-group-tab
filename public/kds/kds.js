@@ -442,7 +442,7 @@ async function renderMenu() {
       p.photo
         ? el('img', { class: 'thumb', src: `/kds/photos/${p.id}/${p.photo}/thumb.jpg`, alt: '' })
         : el('span', { class: 'thumb empty' }, 'sin foto'),
-      el('span', { class: 'name' }, p.name),
+      el('span', { class: 'name' }, p.name, p.description && el('span', { class: 'desc' }, p.description)),
       el('div', { class: 'photo-actions' },
         el('button', { class: 'secondary', onclick: () => pickPhoto(p.id) }, p.photo ? 'Cambiar foto' : 'Foto'),
         p.photo && el('button', {

@@ -1,9 +1,9 @@
-categoria,nombre,precio,impuesto
-Para compartir,Picada para compartir,32000,8
-Para compartir,Tabla de quesos,45000,8
-Fuertes,Hamburguesa de la casa,28000,8
-Fuertes,"Lomo, papas y ensalada",42000,8
-Bebidas,Cerveza artesanal,12000,8
-Bebidas,Michelada,15000,8
-Bebidas,Limonada de coco,14000,8
-Bebidas,Agua,4000,0
+categoria,nombre,precio,impuesto,descripcion
+Para compartir,Picada para compartir,32000,8,"Chorizo, morcilla, chicharrón, papa criolla y arepa"
+Para compartir,Tabla de quesos,45000,8,"Tres quesos de la casa con mermelada, nueces y pan tostado"
+Fuertes,Hamburguesa de la casa,28000,8,"Carne de res de 200 g, queso cheddar, cebolla caramelizada y papas a la francesa"
+Fuertes,"Lomo, papas y ensalada",42000,8,"Lomo de res a la parrilla con papas rústicas y ensalada fresca"
+Bebidas,Cerveza artesanal,12000,8,Roja de la casa en vaso de 400 ml
+Bebidas,Michelada,15000,8,"Cerveza con limón, sal y salsas, en vaso escarchado"
+Bebidas,Limonada de coco,14000,8,
+Bebidas,Agua,4000,0,

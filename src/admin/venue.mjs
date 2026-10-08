@@ -42,7 +42,10 @@ const COLUMNS = {
   name: ['nombre', 'name', 'producto'],
   price: ['precio', 'price'],
   tax: ['impuesto', 'tax', 'iva'],
+  description: ['descripcion', 'descripción', 'description'],
 }
+
+const MAX_DESCRIPTION = 300
 
 const norm = (s) => s.trim().toLowerCase()
 
@@ -52,7 +55,7 @@ export function parseMenu(rows) {
   const col = Object.fromEntries(Object.entries(COLUMNS).map(([k, names]) =>
     [k, header.findIndex((h) => names.includes(h))]))
   if (col.name < 0 || col.price < 0) {
-    throw new Error('La carta necesita las columnas "nombre" y "precio" (y opcionalmente "categoria" e "impuesto").')
+    throw new Error('La carta necesita las columnas "nombre" y "precio" (y opcionalmente "categoria", "impuesto" y "descripcion").')
   }
 
   const errors = []
@@ -74,6 +77,14 @@ export function parseMenu(rows) {
     const pct = rawTax === '' ? 0 : Number(rawTax.replace('%', '').replace(',', '.'))
     if (!(pct >= 0 && pct < 100)) errors.push(`fila ${line}: impuesto "${rawTax}" debe ser un porcentaje entre 0 y 99`)
 
+    // Line breaks inside a cell become spaces. Counted in code points, as
+    // Postgres char_length counts, so what passes here passes the check.
+    const description = col.description >= 0 ? (r[col.description] ?? '').replace(/\s+/g, ' ').trim() : ''
+    const length = [...description].length
+    if (length > MAX_DESCRIPTION) {
+      errors.push(`fila ${line}: la descripción tiene ${length} caracteres (máximo ${MAX_DESCRIPTION})`)
+    }
+
     if (name) {
       const key = norm(name)
       if (seen.has(key)) errors.push(`fila ${line}: "${name}" está repetido`)
@@ -85,6 +96,8 @@ export function parseMenu(rows) {
       name,
       unitPrice,
       taxRate: Math.round(pct * 1000) / 100000,
+      // No column, no key: an old price-only file says nothing about descriptions.
+      ...(col.description >= 0 ? { description: description || null } : {}),
     })
   })
 
@@ -167,14 +180,18 @@ export async function loadMenu(db, venueId, menu, { dryRun = false } = {}) {
 
   const changes = { added: [], updated: [], hidden: [] }
   for (const item of menu) {
+    // The description is written only when the file had the column.
+    const hasDescription = 'description' in item
     const { rowCount } = await db.query(
-      `update products set category = $3, unit_price = $4, tax_rate = $5, is_available = true
-        where venue_id = $1 and name = $2`, [venueId, item.name, item.category, item.unitPrice, item.taxRate])
+      `update products set category = $3, unit_price = $4, tax_rate = $5, is_available = true,
+              description = case when $6 then $7 else description end
+        where venue_id = $1 and name = $2`,
+      [venueId, item.name, item.category, item.unitPrice, item.taxRate, hasDescription, item.description ?? null])
     if (rowCount) changes.updated.push(item.name)
     else {
       await db.query(
-        `insert into products (venue_id, name, category, unit_price, tax_rate) values ($1, $2, $3, $4, $5)`,
-        [venueId, item.name, item.category, item.unitPrice, item.taxRate])
+        `insert into products (venue_id, name, category, unit_price, tax_rate, description) values ($1, $2, $3, $4, $5, $6)`,
+        [venueId, item.name, item.category, item.unitPrice, item.taxRate, item.description ?? null])
       changes.added.push(item.name)
     }
   }

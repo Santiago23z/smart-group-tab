@@ -140,3 +140,52 @@ test('the QR sheet has one card per table, each encoding its own table\'s addres
   assert.match(html, /https:\/\/app\.ronda\.co\/t\/def456/)
   assert.match(html, /La Terraza/)
 })
+
+// ---------------------------------------------------------------------------
+// Descriptions
+// ---------------------------------------------------------------------------
+const descriptionOf = async (venueId, name) => (await pool.query(
+  `select description from products where venue_id = $1 and name = $2`, [venueId, name])).rows[0].description
+
+test('a description column is read, its spacing tidied, and left out when the file has none', () => {
+  const [picada] = parseMenu(parseCsv('nombre,precio,descripción\nPicada,32000,"Chorizo,  morcilla\ny arepa"\n'))
+  assert.equal(picada.description, 'Chorizo, morcilla y arepa')
+  const [empty] = parseMenu(parseCsv('nombre,precio,description\nAgua,3000,\n'))
+  assert.equal(empty.description, null)
+  const [none] = parseMenu(parseCsv('nombre,precio\nAgua,3000\n'))
+  assert.equal('description' in none, false, 'no column: nothing to say about descriptions')
+})
+
+test('a description is at most 300 characters, counted as the database counts them', () => {
+  const accented = 'ñ'.repeat(299) + '🍔'
+  const [ok] = parseMenu(parseCsv(`nombre,precio,descripcion\nA,1000,${accented}\n`))
+  assert.equal(ok.description, accented)
+  assert.throws(() => parseMenu(parseCsv(`nombre,precio,descripcion\nA,1000,x\nB,1000,${'x'.repeat(301)}\n`)),
+    /fila 3: la descripción tiene 301 caracteres/)
+})
+
+test('uploading keeps descriptions unless the file has the column; an empty cell clears one', async () => {
+  const name = uniqueName()
+  const base = { name, mode: 'open_tab', tables: 1, barSeats: 0 }
+  const r = await loadVenue(pool, { ...base, menu: [
+    { category: null, name: 'Picada', unitPrice: 32000, taxRate: 0, description: 'Chorizo y arepa' },
+    { category: null, name: 'Quesos', unitPrice: 45000, taxRate: 0, description: 'Tres quesos' },
+  ] })
+  assert.equal(await descriptionOf(r.venueId, 'Picada'), 'Chorizo y arepa')
+
+  // An old price-only file: prices change, descriptions stay, and a hidden dish keeps its own.
+  await loadVenue(pool, { ...base, menu: [{ category: null, name: 'Picada', unitPrice: 34000, taxRate: 0 }] })
+  assert.equal(await descriptionOf(r.venueId, 'Picada'), 'Chorizo y arepa')
+  assert.equal(await descriptionOf(r.venueId, 'Quesos'), 'Tres quesos')
+
+  // A file with the column and an empty cell clears it.
+  await loadVenue(pool, { ...base, menu: [{ category: null, name: 'Picada', unitPrice: 34000, taxRate: 0, description: null }] })
+  assert.equal(await descriptionOf(r.venueId, 'Picada'), null)
+})
+
+test('the database refuses a description past 300 characters', async () => {
+  const r = await loadVenue(pool, { name: uniqueName(), mode: 'open_tab', tables: 1, barSeats: 0,
+    menu: [{ category: null, name: 'Agua', unitPrice: 3000, taxRate: 0 }] })
+  await assert.rejects(pool.query(`update products set description = repeat('x', 301) where venue_id = $1`, [r.venueId]),
+    /check constraint/)
+})

@@ -155,6 +155,15 @@ header .eyebrow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis
 .row .grow { flex: 1; min-width: 0; }
 .row .name { font-weight: 620; letter-spacing: -.01em; }
 .row .sub { color: var(--muted); font-size: .86rem; margin-top: .1rem; }
+/* What comes in the dish: two lines, whole on tap. Text, not a pill. The clamp
+   sits on the inner span: WebKit ignores it on a button's own box. */
+.row button.desc {
+  display: block; width: 100%; background: none; color: var(--muted); padding: 0; border-radius: 0;
+  margin-top: .15rem; font-size: .82rem; font-weight: 400; line-height: 1.35; text-align: left;
+}
+.row button.desc span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.row button.desc:active { transform: none; }
+.row button.desc.open span { -webkit-line-clamp: unset; }
 .row .price { white-space: nowrap; font-weight: 600; }
 .row button.add {
   width: 2.6rem; height: 2.6rem; padding: 0; flex: none;
@@ -173,11 +182,14 @@ header .eyebrow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis
 
 .photo-view {
   position: fixed; inset: 0; z-index: 40; border-radius: 0; padding: 1.2rem;
-  display: grid; place-items: center;
+  display: grid; place-items: center; align-content: center; gap: 1rem;
   background: rgba(6, 4, 2, .88); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   animation: fade .2s var(--ease);
 }
-.photo-view img { max-width: 100%; max-height: 80dvh; border-radius: var(--radius); box-shadow: var(--shadow); }
+.photo-view img { max-width: 100%; max-height: 65dvh; border-radius: var(--radius); box-shadow: var(--shadow); }
+.photo-caption { display: grid; gap: .3rem; max-width: 32rem; width: 100%; text-align: left; color: var(--text); }
+.photo-caption strong { font-size: 1.05rem; }
+.photo-caption span { color: var(--muted); font-weight: 400; font-size: .9rem; line-height: 1.4; }
 
 /* Cart ------------------------------------------------------------------- */
 #cart-list { display: grid; gap: .6rem; margin-top: 1rem; }

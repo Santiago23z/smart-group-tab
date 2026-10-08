@@ -134,9 +134,9 @@ Probado en vivo con el sandbox de Wompi:
 
 ## Montar un bar nuevo
 
-1. Llenar la carta en Excel o Google Sheets con 4 columnas: `categoria`, `nombre`, `precio`,
-   `impuesto` (por ejemplo `8` para 8%). Exportarla como CSV. Hay un ejemplo en
-   `docs/carta-ejemplo.csv`.
+1. Llenar la carta en Excel o Google Sheets con las columnas `categoria`, `nombre`, `precio`,
+   `impuesto` (por ejemplo `8` para 8%) y, si se quiere, `descripcion` (qué trae el plato, máximo
+   300 letras). Exportarla como CSV. Hay un ejemplo en `docs/carta-ejemplo.csv`.
 2. Cargar el bar:
    `npm run venue:load -- --name "La Terraza" --mode open_tab --tables 12 --bar 3 --menu carta.csv`
    (`--mode`: `pay_before_order`, `open_tab` o `hybrid`). Si la carta tiene errores, dice cuáles y
@@ -155,6 +155,11 @@ nada.
 queda en unos pocos KB. Los comensales ven una fotito al lado del plato y la abren grande al
 tocarla; cada celular la descarga una sola vez. Las fotos no van en la hoja de cálculo: se ponen
 desde la pantalla, y subir la carta no las borra.
+
+**Descripciones:** van en la columna `descripcion` de la hoja. El comensal la ve en letra pequeña
+debajo del nombre (2 líneas; al tocarla se ve completa) y completa junto a la foto grande. Subir
+una hoja **sin** esa columna no borra las descripciones que ya estaban; una celda vacía sí la
+borra.
 
 Volver a cargar la carta actualiza precios y oculta los platos que ya no están. **Los QR de las
 mesas nunca cambian**, así que no hay que reimprimirlos. Mientras no haya dominio, los QR apuntan a
@@ -217,6 +222,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 1 oct | Rediseño de la pantalla de la cocina con la marca Ronda |
 | 2 oct | Una foto por plato, desde la pantalla de la cocina |
 | 2 oct | El comensal avisa desde el celular que paga en efectivo o datáfono |
+| 7 oct | Descripción de cada plato, desde la hoja de la carta |
 
 ## Lo que falta
 
