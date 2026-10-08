@@ -2,7 +2,10 @@
    metres by someone holding a pan, and tapped by a waiter between tables.
    Big type, one accent, and colour that always means the same thing:
      amber  the one thing to do next      grey   everything else
-     red    outline only: it cannot be undone   green  a state that is fine */
+     red    outline only: it cannot be undone   green  a state that is fine
+   Same type and motion as the diner's screen: the serif only for titles (the
+   numbers a cook reads stay in the sans), new cards slide in once, and a
+   finished ticket fades out instead of vanishing. */
 
 :root {
   --bg: #120f0d;
@@ -26,7 +29,14 @@
   --radius-lg: 20px;
   --radius: 14px;
   --radius-sm: 10px;
+  --accent-hi: #f6b277;
+  --accent-lo: #dd853b;
+  --serif: ui-serif, "New York", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
   --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  --lift: inset 0 1px 0 rgba(255, 240, 225, .045);
   --shadow: 0 18px 40px -18px rgba(8, 4, 1, .9);
 }
 
@@ -39,17 +49,30 @@
 body {
   margin: 0;
   color: var(--text);
-  font: 18px/1.4 ui-rounded, -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  font: 18px/1.4 var(--sans);
   font-variant-numeric: tabular-nums;
-  background: radial-gradient(90% 50% at 30% -10%, var(--bg-glow) 0%, transparent 60%), var(--bg);
-  background-attachment: fixed;
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
+/* A warm light from the top-left and a little grain, on a fixed layer. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .9 0 0 0 0 .8 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(90% 50% at 30% -10%, var(--bg-glow) 0%, transparent 60%),
+    var(--bg);
+}
 
-h1 { font-size: 1.9rem; margin: 0; letter-spacing: -.03em; font-weight: 750; }
+h1 { font-family: var(--serif); font-size: 2.1rem; margin: 0; letter-spacing: -.015em; font-weight: 600; }
 h2 { font-size: 1.05rem; margin: 0; letter-spacing: -.01em; font-weight: 700; }
 .muted { color: var(--muted); }
-.empty { padding: .6rem 0 .2rem; font-size: 1rem; color: var(--faint); }
+.empty { padding: .6rem 0 .2rem; font-size: 1rem; color: var(--faint); animation: fade .4s var(--ease); }
+/* No orders: a calm, centred rest state rather than a line of grey text. */
+#no-orders { display: grid; justify-items: center; gap: .9rem; padding: 6rem 1rem; text-align: center; font-size: 1.1rem; }
+#no-orders::before {
+  content: ""; width: 4.6rem; height: 4rem; opacity: .35;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 28'%3E%3Cg fill='none' stroke='%23a3968b' stroke-width='1.4'%3E%3Ccircle cx='10' cy='10' r='7.5'/%3E%3Ccircle cx='22' cy='10' r='7.5'/%3E%3Ccircle cx='16' cy='19' r='7.5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+}
 
 #locked { padding: 3rem; max-width: 40rem; }
 #locked .brand { margin-bottom: 1.2rem; }
@@ -57,13 +80,13 @@ h2 { font-size: 1.05rem; margin: 0; letter-spacing: -.01em; font-weight: 700; }
 /* Brand ------------------------------------------------------------------ */
 .brand {
   display: inline-flex; align-items: center; gap: .55rem; margin: 0;
-  font-weight: 800; font-size: 1.15rem; letter-spacing: -.02em;
+  font-family: var(--serif); font-weight: 600; font-size: 1.3rem; letter-spacing: -.01em;
 }
 .brand::before {
   content: ""; width: 1.7rem; height: 1.5rem;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 28'%3E%3Cg fill='none' stroke='%23ec9a52' stroke-width='3'%3E%3Ccircle cx='10' cy='10' r='7.5'/%3E%3Ccircle cx='22' cy='10' r='7.5'/%3E%3Ccircle cx='16' cy='19' r='7.5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
 }
-.brand span { color: var(--muted); font-weight: 600; }
+.brand span { color: var(--muted); font-family: var(--sans); font-weight: 600; font-size: .95rem; letter-spacing: .14em; text-transform: uppercase; }
 
 /* Top bar ---------------------------------------------------------------- */
 .topbar {
@@ -79,22 +102,27 @@ h2 { font-size: 1.05rem; margin: 0; letter-spacing: -.01em; font-weight: 700; }
 .banner {
   margin: 0; padding: .8rem 1.4rem; font-weight: 700; font-size: 1.1rem;
   background: var(--err); color: #1a0805;
+  animation: drop-in .4s var(--ease-out);
 }
 
 /* Buttons ---------------------------------------------------------------- */
 button, .upload {
   font: inherit; font-weight: 700; border: 0; border-radius: var(--radius-sm);
   padding: .8rem 1rem; cursor: pointer;
-  background: var(--accent); color: var(--accent-ink);
-  transition: transform .15s var(--ease), background-color .2s var(--ease), box-shadow .2s var(--ease), opacity .2s;
+  color: var(--accent-ink);
+  /* Lit from above, like the diner's buttons. */
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent) 55%, var(--accent-lo));
+  box-shadow: inset 0 1px 0 rgba(255, 236, 214, .45), 0 8px 22px -14px rgba(236, 154, 82, .75);
+  transition: transform .2s var(--ease), background-color .25s var(--ease), box-shadow .25s var(--ease), opacity .25s, filter .2s;
 }
-button:active, .upload:active { transform: scale(.97); }
+button:active, .upload:active { transform: scale(.965); transition-duration: .08s; }
+@media (hover: hover) { button:not(.text):hover, .upload:hover { filter: brightness(1.08); } }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 button.secondary, .upload {
-  background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line);
+  background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line), var(--lift);
 }
 button.danger { background: transparent; color: var(--err); box-shadow: inset 0 0 0 1.5px rgba(231, 119, 106, .55); }
-button.text { background: none; color: var(--muted); padding: .35rem .2rem; font-weight: 600; font-size: .9rem; }
+button.text { box-shadow: none; background: none; color: var(--muted); padding: .35rem .2rem; font-weight: 600; font-size: .9rem; }
 button:disabled { opacity: .45; cursor: default; }
 
 /* Layout ----------------------------------------------------------------- */
@@ -112,12 +140,18 @@ button:disabled { opacity: .45; cursor: default; }
 /* Tickets ---------------------------------------------------------------- */
 .ticket {
   position: relative; overflow: hidden;
-  background: var(--surface); border-radius: var(--radius-lg);
-  box-shadow: inset 0 0 0 1px var(--line-soft), var(--shadow);
+  background: linear-gradient(180deg, rgba(255, 240, 225, .03), transparent 40%), var(--surface); border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px var(--line-soft), var(--lift), var(--shadow);
+  transition: opacity .35s var(--ease), transform .35s var(--ease), box-shadow .4s var(--ease);
   padding: 1.05rem 1.1rem 1.1rem;
   display: flex; flex-direction: column; gap: .75rem;
-  /* No entry animation: the grid is redrawn every poll, and it would flash. */
 }
+/* The grid is redrawn every poll, so kds.js marks only tickets it has not
+   shown before; those slide in once. A ticket marked done fades out while the
+   server catches up, and is gone at the next redraw. */
+.ticket.enter { animation: ticket-in .6s var(--ease-out) both; }
+.ticket.leaving { opacity: 0; transform: scale(.94) translateY(.4rem); pointer-events: none; }
+.ticket::before { transition: background-color .6s var(--ease); }
 /* A strip across the top that fills with urgency: readable from the stove. */
 .ticket::before {
   content: ""; position: absolute; inset: 0 0 auto 0; height: 5px; background: var(--line);
@@ -149,6 +183,9 @@ button:disabled { opacity: .45; cursor: default; }
   padding: 1.2rem 1.1rem 2rem; display: flex; flex-direction: column;
 }
 .alerts > header { display: flex; align-items: center; gap: .6rem; margin-bottom: .7rem; }
+.alerts > header h2 { font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+/* Sidebar cards seen for the first time arrive; the rest stay still. */
+.alerts li.enter { animation: fade-up .5s var(--ease-out) both; }
 .alerts > header.sub { margin-top: 1.7rem; }
 .count:not(:empty) {
   min-width: 1.6rem; height: 1.6rem; padding: 0 .45rem; border-radius: 999px;
@@ -204,24 +241,37 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* Dialogs ---------------------------------------------------------------- */
 dialog {
-  background: var(--surface); color: var(--text); border: 0;
+  background: linear-gradient(180deg, var(--surface-2), var(--surface) 8rem); color: var(--text); border: 0;
   border-radius: var(--radius-lg); padding: 1.4rem;
   width: min(30rem, 92vw);
   box-shadow: inset 0 0 0 1px var(--line), 0 30px 80px -20px rgba(0, 0, 0, .9);
 }
-dialog[open] { animation: rise .25s var(--ease); }
-dialog::backdrop { background: rgba(6, 4, 2, .66); backdrop-filter: blur(3px); }
+/* Opens rising, closes sinking. Closing uses display/overlay transitions; where
+   they are missing a dialog just closes, as before. */
+dialog[open] { animation: rise .45s var(--ease-out); }
+dialog {
+  transition: opacity .25s var(--ease), transform .3s var(--ease), display .3s, overlay .3s;
+  transition-behavior: allow-discrete;
+}
+dialog:not([open]) { opacity: 0; transform: translateY(.8rem) scale(.98); }
+dialog::backdrop {
+  background: rgba(6, 4, 2, .66); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  animation: fade .35s var(--ease);
+}
+dialog h2 { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; letter-spacing: -.01em; }
 dialog form { display: grid; gap: .9rem; }
 dialog label { display: grid; gap: .3rem; font-weight: 600; font-size: .95rem; }
 dialog input, dialog select {
   font: inherit; padding: .65rem .75rem; border-radius: var(--radius-sm);
   border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
 }
-dialog input:focus, dialog select:focus { outline: none; border-color: var(--accent); }
+dialog input, dialog select { transition: border-color .25s var(--ease), box-shadow .25s var(--ease); }
+dialog input:focus, dialog select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: .2rem; }
 
 .parts { border: 0; margin: 0; padding: 0; display: grid; gap: .45rem; }
 .parts label {
+  transition: box-shadow .2s var(--ease), background .2s var(--ease);
   display: flex; align-items: center; gap: .7rem; font-weight: 600;
   padding: .7rem .85rem; border-radius: var(--radius-sm); background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--line); cursor: pointer;
@@ -233,12 +283,13 @@ dialog input:focus, dialog select:focus { outline: none; border-color: var(--acc
 /* Carta ------------------------------------------------------------------ */
 dialog.wide { width: min(46rem, 94vw); max-height: 88vh; }
 .menu-head { display: flex; align-items: center; gap: .6rem; margin-bottom: 1rem; }
-.menu-head h2 { margin-right: auto; font-size: 1.4rem; }
+.menu-head h2 { margin-right: auto; font-size: 1.7rem; }
 .upload { display: inline-block; padding: .6rem 1rem; }
 #menu-venue { font: inherit; padding: .5rem; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
-.menu-cat { color: var(--muted); font-weight: 700; margin: 1.1rem 0 .2rem; font-size: .95rem; }
+.menu-cat { color: var(--accent); font-weight: 700; margin: 1.4rem 0 .2rem; font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; }
 .dish { display: flex; align-items: center; gap: .8rem; padding: .6rem 0; border-bottom: 1px solid var(--line-soft); }
-.dish .name { flex: 1; font-weight: 650; }
+.dish .name { flex: 1; font-family: var(--serif); font-weight: 600; font-size: 1.08rem; }
+.dish .name .desc { font-family: var(--sans); }
 .dish .name .desc { display: block; margin-top: .15rem; color: var(--muted); font-weight: 400; font-size: .85rem; line-height: 1.35; }
 .dish.out .name { color: var(--faint); text-decoration: line-through; }
 .dish .price { color: var(--muted); }
@@ -263,13 +314,19 @@ dialog.wide { width: min(46rem, 94vw); max-height: 88vh; }
   margin: 0; padding: .85rem 1.25rem; border-radius: 999px; max-width: 90vw; font-weight: 700;
   background: rgba(49, 41, 36, .96); backdrop-filter: blur(12px);
   box-shadow: inset 0 0 0 1.5px var(--warn), var(--shadow);
-  animation: rise .25s var(--ease);
+  animation: rise .45s var(--spring);
+  transition: opacity .3s var(--ease), transform .3s var(--ease), display .3s; transition-behavior: allow-discrete;
 }
+.notice[hidden] { opacity: 0; transform: translate(-50%, .8rem); }
 
 @keyframes rise { from { transform: translateY(.8rem); opacity: 0; } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes fade-up { from { transform: translateY(.6rem); opacity: 0; } }
+@keyframes drop-in { from { transform: translateY(-100%); opacity: 0; } }
+@keyframes ticket-in { from { transform: translateY(1rem) scale(.97); opacity: 0; } }
 .notice { animation-name: rise-center; }
 @keyframes rise-center { from { transform: translate(-50%, .8rem); opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before { animation: none !important; transition: none !important; }
+  *, *::before, *::after, ::backdrop { animation: none !important; transition: none !important; }
 }

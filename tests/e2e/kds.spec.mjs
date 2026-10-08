@@ -98,6 +98,19 @@ test('a paid round appears without a reload, and "Listo" clears it', async ({ pa
   const ticket = page.locator(`.ticket[data-round="${roundId}"]`)
   await expect(ticket).toHaveCount(0)
 
+  // Every class this ticket is ever drawn with. The screen has drawn once
+  // (the clock is set by the same render), so the ticket counts as arriving.
+  await expect(page.locator('#clock')).not.toBeEmpty()
+  await page.evaluate((id) => {
+    window.ticketClasses = []
+    new MutationObserver((records) => {
+      for (const r of records) {
+        const nodes = r.type === 'attributes' ? [r.target] : [...r.addedNodes]
+        for (const n of nodes) if (n.dataset?.round === id) window.ticketClasses.push(n.className)
+      }
+    }).observe(document.getElementById('tickets'), { childList: true, attributes: true, subtree: true, attributeFilter: ['class'] })
+  }, roundId)
+
   await deliver(baseURL, roundId)
 
   await expect(ticket).toBeVisible({ timeout: 8000 })
@@ -112,8 +125,32 @@ test('a paid round appears without a reload, and "Listo" clears it', async ({ pa
   await ticket.locator('button', { hasText: 'Listo' }).click()
   await expect(ticket).toHaveCount(0, { timeout: 8000 })
 
+  // Animated in on arrival, faded out by "Listo".
+  const classes = await page.evaluate(() => window.ticketClasses)
+  expect(classes[0]).toContain('enter')
+  expect(classes.some((c) => c.includes('leaving'))).toBe(true)
+
   const [row] = await sql(`select done_at from kitchen_tickets where round_id = $1`, [roundId])
   expect(row.done_at).not.toBeNull()
+})
+
+test('what is already on screen when it opens appears at once, without animating in', async ({ page, baseURL }) => {
+  const { roundId } = await paidRound('kds-load')
+  await deliver(baseURL, roundId)
+  // Record every card drawn with an entrance from the very first render: a
+  // class that a later poll removes would otherwise go unnoticed.
+  await page.addInitScript(() => {
+    window.entered = []
+    new MutationObserver((records) => {
+      for (const r of records) for (const n of r.addedNodes) {
+        if (n.classList?.contains('enter')) window.entered.push(n.className)
+      }
+    }).observe(document, { childList: true, subtree: true })
+  })
+  await openScreen(page)
+  const ticket = page.locator(`.ticket[data-round="${roundId}"]`)
+  await expect(ticket).toBeVisible({ timeout: 8000 })
+  expect(await page.evaluate(() => window.entered)).toEqual([])
 })
 
 test('a table whose order never reached the kitchen is shown with its reason', async ({ page }) => {

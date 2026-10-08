@@ -129,6 +129,17 @@ const el = (tag, attrs = {}, ...children) => {
   return node
 }
 
+// Everything is redrawn every poll. A card animates in only when it arrives
+// while the screen is open; what is already there on load (possibly hundreds
+// of tables) appears at once, and nothing that was drawn before moves again.
+const seen = new Set()
+let primed = false
+const fresh = (key) => (seen.has(key) ? '' : (seen.add(key), primed ? ' enter' : ''))
+
+// Tickets marked done, fading out until the server stops listing them. A poll
+// already in flight may still list one; it keeps fading instead of popping back.
+const leaving = new Set()
+
 function waited(sinceIso) {
   const seconds = Math.max(0, Math.floor((Date.now() + clockOffsetMs - Date.parse(sinceIso)) / 1000))
   const m = Math.floor(seconds / 60)
@@ -154,10 +165,12 @@ function describe(reason) {
 function renderTickets(tickets) {
   $('order-count').textContent = tickets.length ? `${tickets.length} en cola` : ''
   $('no-orders').hidden = tickets.length > 0
+  for (const id of leaving) if (!tickets.some((t) => t.round_id === id)) leaving.delete(id)
   $('tickets').replaceChildren(...tickets.map((t) => {
     const w = waited(t.first_received_at)
     const lateness = w.seconds >= 20 * 60 ? ' very-late' : w.seconds >= 10 * 60 ? ' late' : ''
-    return el('article', { class: `ticket${lateness}`, 'data-round': t.round_id },
+    const motion = leaving.has(t.round_id) ? ' leaving' : fresh(`t:${t.round_id}`)
+    return el('article', { class: `ticket${lateness}${motion}`, 'data-round': t.round_id },
       el('div', { class: 'ticket-head' },
         el('span', { class: 'ticket-table' }, t.table ?? '¿mesa?'),
         el('span', { class: 'ticket-wait', 'data-since': t.first_received_at }, w.text)),
@@ -169,7 +182,9 @@ function renderTickets(tickets) {
       el('button', {
         onclick: async (e) => {
           e.currentTarget.disabled = true
-          await api(`/kds/api/tickets/${t.round_id}/done`, { method: 'POST' }).catch(() => {})
+          e.currentTarget.closest('.ticket').classList.add('leaving')
+          leaving.add(t.round_id)
+          await api(`/kds/api/tickets/${t.round_id}/done`, { method: 'POST' }).catch(() => leaving.delete(t.round_id))
           refresh()
         },
       }, 'Listo'))
@@ -189,7 +204,7 @@ function renderAlerts(alerts) {
 
   $('no-alerts').hidden = tables.length > 0
   $('alert-list').replaceChildren(...tables.map((a) =>
-    el('li', { class: `alert${a.acknowledged_at ? ' acked' : ''}`, 'data-session': a.session_id },
+    el('li', { class: `alert${a.acknowledged_at ? ' acked' : ''}${fresh(`a:${a.session_id}`)}`, 'data-session': a.session_id },
       el('span', { class: 'alert-table' }, a.table),
       el('ul', {}, ...a.reasons.map((r) => el('li', { 'data-kind': r.kind }, describe(r), reasonActions(a, r)))),
       a.acknowledged_at
@@ -293,7 +308,7 @@ function renderCollections(collections) {
   $('collection-count').textContent = collections.length ? String(collections.length) : ''
   $('collection-list').replaceChildren(...collections.map((c) => {
     const stalled = c.status === 'requires_staff_attention'
-    return el('li', { class: `collection${stalled ? ' stalled' : ''}`, 'data-round': c.round_id },
+    return el('li', { class: `collection${stalled ? ' stalled' : ''}${fresh(`c:${c.round_id}`)}`, 'data-round': c.round_id },
       el('span', { class: 'collection-head' }, `${c.table} · Ronda ${c.round_number}`),
       el('span', {}, `Falta ${money(c.outstanding)} de ${money(c.total)}${stalled ? ' — trabada' : ''}`),
       c.reservations.length > 0 && el('ul', { class: 'holds' }, ...c.reservations.map((h) =>
@@ -339,7 +354,7 @@ function renderCashRequests(requests) {
     const who = r.participant_id ? r.nickname : `${r.nickname}, por lo que falta`
     const free = Number(r.amount) - Number(r.held)
     const target = r.target_scope === 'round' ? 'la ronda' : 'la cuenta'
-    return el('li', { class: 'collection call', 'data-cash-request': r.id },
+    return el('li', { class: `collection call${fresh(`q:${r.id}`)}`, 'data-cash-request': r.id },
       el('span', { class: 'collection-head' }, `${r.table} · ${who}`),
       el('span', {}, `${money(r.amount)} de ${target}, en ${METHOD[r.method]} · hace `,
         el('span', { class: 'ticket-wait', 'data-since': r.created_at }, waited(r.created_at).text)),
@@ -586,13 +601,13 @@ function renderOpenTables(tables) {
     const asked = Boolean(t.bill_requested_at)
     const owed = Number(t.tab.total)
     if (quiet(t)) {
-      return el('li', { class: 'collection idle', 'data-session': t.session_id },
+      return el('li', { class: `collection idle${fresh(`o:${t.session_id}`)}`, 'data-session': t.session_id },
         el('span', { class: 'collection-head' }, t.table),
         el('span', { class: 'muted' }, 'sin cuenta'),
         el('div', { class: 'actions' },
           el('button', { class: 'secondary', onclick: () => run(`/kds/api/sessions/${t.session_id}/bill`) }, 'Pedir la cuenta')))
     }
-    return el('li', { class: `collection${asked ? ' stalled' : ''}`, 'data-session': t.session_id },
+    return el('li', { class: `collection${asked ? ' stalled' : ''}${fresh(`o:${t.session_id}`)}`, 'data-session': t.session_id },
       el('span', { class: 'collection-head' }, `${t.table}${asked ? ' · cuenta pedida' : ''}`),
       el('span', {}, owed > 0 ? `Cuenta pendiente: ${money(owed)}` : 'Sin cuenta pendiente'),
       owed > 0 && el('ul', { class: 'holds' }, ...t.tab.participants.map((p) =>
@@ -639,6 +654,7 @@ async function refresh() {
     renderAlerts(state.alerts)
     renderCollections(state.collections)
     renderOpenTables(state.open_tables)
+    primed = true
   } catch (err) {
     if (err.message !== 'staff_only') $('offline').hidden = false
   } finally {

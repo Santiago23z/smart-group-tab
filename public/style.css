@@ -1,30 +1,47 @@
 /* Ronda — a phone screen in a dark bar.
    Large touch targets, high contrast, one accent, nothing that needs two hands.
    Warm near-black rather than grey: it reads as candlelight, not as a settings
-   page, and it keeps the screen from glaring across the table. */
+   page, and it keeps the screen from glaring across the table.
+
+   Type: a serif for what a printed menu would print (titles, dish names,
+   amounts) and the system sans for everything you read in passing. Both are
+   the phone's own fonts, so nothing is downloaded.
+
+   Motion: things arrive from where they live (sheets from below, the photo
+   from its thumbnail) and leave the same way. Exits use `display` transitions
+   (`transition-behavior: allow-discrete`); where a browser lacks them the
+   element simply disappears, as before. */
 
 :root {
-  --bg: #120f0d;
-  --bg-glow: #2a1a10;
-  --surface: #1c1815;
-  --surface-2: #26201c;
-  --surface-3: #312924;
-  --line: #3a312b;
-  --line-soft: #2a2420;
-  --text: #f4eee8;
-  --muted: #a3968b;
+  --bg: #110d0b;
+  --bg-glow: #2c1a0e;
+  --surface: #1b1613;
+  --surface-2: #241e1a;
+  --surface-3: #2f2722;
+  --line: #3a302a;
+  --line-soft: #29221e;
+  --text: #f6efe7;
+  --muted: #a69a8f;
   --faint: #6f645b;
   --accent: #ec9a52;
-  --accent-soft: rgba(236, 154, 82, .14);
+  --accent-hi: #f6b277;
+  --accent-lo: #dd853b;
+  --accent-soft: rgba(236, 154, 82, .13);
+  --accent-ring: rgba(236, 154, 82, .32);
   --accent-ink: #1c1006;
   --ok: #7cc481;
   --warn: #e7c566;
   --err: #e7776a;
-  --radius-lg: 22px;
-  --radius: 16px;
-  --radius-sm: 11px;
+  --radius-lg: 26px;
+  --radius: 18px;
+  --radius-sm: 13px;
+  --serif: ui-serif, "New York", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, system-ui, sans-serif;
   --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
   --shadow: 0 18px 40px -18px rgba(8, 4, 1, .9);
+  --lift: inset 0 1px 0 rgba(255, 240, 225, .045);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -35,7 +52,8 @@
    user-agent origin regardless of specificity — so `.sheet{display:flex}`,
    `footer{display:flex}` and `#join{display:grid}` each silently defeated it and
    left their element permanently on screen. `!important` is load-bearing here:
-   without it `#join`'s ID selector still outranks this one. */
+   without it `#join`'s ID selector still outranks this one. (A running
+   transition still outranks it, which is what lets the exits below animate.) */
 [hidden] { display: none !important; }
 
 html { background: var(--bg); }
@@ -44,57 +62,69 @@ body {
   margin: 0;
   min-height: 100dvh;
   color: var(--text);
-  font: 16px/1.45 ui-rounded, -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  font: 16px/1.45 var(--sans);
   font-variant-numeric: tabular-nums;
   padding-bottom: env(safe-area-inset-bottom);
-  /* One warm light source from above, like a lamp over the table. */
-  background:
-    radial-gradient(120% 60% at 50% -10%, var(--bg-glow) 0%, transparent 60%),
-    var(--bg);
-  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+/* One warm light from above, like a lamp over the table, and a little grain so
+   the dark reads as a material rather than a flat fill. A fixed layer, because
+   iOS ignores `background-attachment: fixed`. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .9 0 0 0 0 .8 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(120% 55% at 50% -12%, var(--bg-glow) 0%, transparent 62%),
+    var(--bg);
 }
 
-h1 { font-size: 2rem; line-height: 1.1; margin: 0 0 .6rem; letter-spacing: -.03em; font-weight: 750; }
-h2 { font-size: 1.35rem; margin: 0; letter-spacing: -.02em; font-weight: 700; }
+h1, h2, .serif { font-family: var(--serif); }
+h1 { font-size: 2.35rem; line-height: 1.05; margin: 0 0 .7rem; letter-spacing: -.02em; font-weight: 600; }
+h2 { font-size: 1.6rem; margin: 0; letter-spacing: -.015em; font-weight: 600; line-height: 1.1; }
 h3 { font-size: 1.05rem; margin: 0 0 .2rem; font-weight: 650; }
 p { text-wrap: pretty; }
 
 .muted { color: var(--muted); }
 .tiny { font-size: .8rem; }
-.eyebrow { color: var(--muted); font-size: .82rem; font-weight: 550; margin: 0 0 .15rem; }
-.error { color: var(--err); font-size: .9rem; margin-top: .75rem; }
+.eyebrow { color: var(--muted); font-size: .78rem; font-weight: 600; margin: 0 0 .25rem; letter-spacing: .01em; }
+.error { color: var(--err); font-size: .9rem; margin-top: .75rem; animation: fade-up .3s var(--ease-out); }
 
 /* Buttons ---------------------------------------------------------------- */
 button {
   font: inherit; font-weight: 650; border: 0; border-radius: 999px;
-  background: var(--accent); color: var(--accent-ink);
-  padding: .9rem 1.25rem; cursor: pointer;
-  transition: transform .15s var(--ease), background-color .2s var(--ease), opacity .2s;
+  color: var(--accent-ink); padding: .95rem 1.3rem; cursor: pointer; letter-spacing: -.005em;
+  /* Lit from above: a lighter top edge and a warm glow under it. */
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent) 55%, var(--accent-lo));
+  box-shadow: inset 0 1px 0 rgba(255, 236, 214, .45), 0 10px 26px -14px rgba(236, 154, 82, .75);
+  transition: transform .2s var(--ease), background-color .25s var(--ease), box-shadow .25s var(--ease), color .25s var(--ease), opacity .25s;
 }
-button:active { transform: scale(.97); }
+button:active { transform: scale(.965); transition-duration: .08s; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-button.ghost { background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+button.ghost {
+  background: var(--surface-2); color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line), var(--lift);
+}
 button.text {
-  background: none; color: var(--muted); padding: .35rem .1rem; border-radius: 6px;
+  background: none; box-shadow: none; color: var(--muted); padding: .35rem .1rem; border-radius: 6px;
   font-weight: 600; font-size: .85rem;
 }
 button.text:active { color: var(--text); }
 button:disabled { opacity: .45; }
 
 input {
-  font: inherit; width: 100%; padding: .95rem 1.05rem;
+  font: inherit; width: 100%; padding: 1rem 1.1rem;
   background: var(--surface-2); border: 1px solid var(--line);
   border-radius: var(--radius); color: var(--text);
-  transition: border-color .2s var(--ease), background-color .2s var(--ease);
+  transition: border-color .25s var(--ease), background-color .25s var(--ease), box-shadow .25s var(--ease);
 }
 input::placeholder { color: var(--faint); }
-input:focus { outline: none; border-color: var(--accent); background: var(--surface-3); }
+input:focus { outline: none; border-color: var(--accent); background: var(--surface-3); box-shadow: 0 0 0 4px var(--accent-soft); }
 
 /* Brand ------------------------------------------------------------------ */
 .brand {
   display: inline-flex; align-items: center; gap: .5rem;
-  font-weight: 800; font-size: 1.05rem; letter-spacing: -.02em; margin: 0;
+  font-family: var(--serif); font-weight: 600; font-size: 1.2rem; letter-spacing: -.01em; margin: 0;
 }
 .brand::before {
   /* The mark: three glasses meeting over the table, seen from above — a round. */
@@ -102,186 +132,275 @@ input:focus { outline: none; border-color: var(--accent); background: var(--surf
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 28'%3E%3Cg fill='none' stroke='%23ec9a52' stroke-width='3'%3E%3Ccircle cx='10' cy='10' r='7.5'/%3E%3Ccircle cx='22' cy='10' r='7.5'/%3E%3Ccircle cx='16' cy='19' r='7.5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
 }
 
+/* Screens ---------------------------------------------------------------- */
+.screen { animation: fade .45s var(--ease); }
+
 /* Join ------------------------------------------------------------------- */
 #join {
+  position: relative; overflow: hidden;
   min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto;
   padding: calc(1.2rem + env(safe-area-inset-top)) 1.4rem 1.6rem;
 }
-#join .brand { justify-self: start; }
-.join-box { width: 100%; max-width: 26rem; align-self: center; justify-self: center; margin-top: 18vh; }
-.join-box .eyebrow { color: var(--accent); }
-.join-box form { display: grid; gap: .75rem; margin-top: 1.6rem; }
-.join-box p.muted { font-size: 1.02rem; }
+/* The mark again, huge and faint behind the question, turning very slowly. */
+#join::after {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  width: 30rem; height: 26rem; left: 50%; top: -2%; margin-left: -15rem;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 28'%3E%3Cg fill='none' stroke='%23ec9a52' stroke-width='.35'%3E%3Ccircle cx='10' cy='10' r='7.5'/%3E%3Ccircle cx='22' cy='10' r='7.5'/%3E%3Ccircle cx='16' cy='19' r='7.5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  opacity: .09;
+  -webkit-mask: radial-gradient(closest-side, #000 40%, transparent);
+  mask: radial-gradient(closest-side, #000 40%, transparent);
+  animation: spin 120s linear infinite;
+}
+#join .brand { justify-self: start; animation: fade-up .6s var(--ease-out) both; }
+.join-box { width: 100%; max-width: 26rem; align-self: end; justify-self: center; padding-bottom: 6vh; }
+.join-box > * { animation: fade-up .7s var(--ease-out) both; }
+.join-box > :nth-child(2) { animation-delay: .06s; }
+.join-box > :nth-child(3) { animation-delay: .12s; }
+.join-box > :nth-child(4) { animation-delay: .18s; }
+.join-box .eyebrow { color: var(--accent); font-size: .8rem; letter-spacing: .14em; text-transform: uppercase; }
+.join-box form { display: grid; gap: .75rem; margin-top: 1.8rem; }
+.join-box p.muted { font-size: 1.04rem; }
 
 /* Table ------------------------------------------------------------------ */
-#table { padding: calc(.9rem + env(safe-area-inset-top)) 1.1rem 8rem; max-width: 34rem; margin: 0 auto; }
+#table { padding: calc(1rem + env(safe-area-inset-top)) 1.15rem 8.5rem; max-width: 34rem; margin: 0 auto; }
 
 header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
 header > div:first-child { min-width: 0; }
 header .eyebrow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .who { display: flex; flex-wrap: wrap; gap: .3rem; justify-content: flex-end; max-width: 55%; }
 .who span {
-  font-size: .75rem; font-weight: 600; padding: .28rem .6rem; border-radius: 999px;
+  font-size: .74rem; font-weight: 600; padding: .3rem .65rem; border-radius: 999px;
   background: var(--surface-2); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line-soft);
+  animation: pop .45s var(--spring) both;
 }
-.who span.me { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(236, 154, 82, .35); }
+.who span.me { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
 
-/* A segmented control, not two buttons. */
+/* A segmented control, not two buttons: one thumb that slides between them. */
 .tabs {
-  display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; margin: 1.1rem 0 .4rem;
+  position: relative;
+  display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; margin: 1.25rem 0 .4rem;
   padding: .25rem; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-soft);
 }
-.tabs button {
-  background: transparent; color: var(--muted); font-weight: 600; padding: .6rem .5rem;
+.tabs::before {
+  content: ""; position: absolute; top: .25rem; bottom: .25rem; left: .25rem; width: calc(50% - .375rem);
+  border-radius: 999px; background: var(--surface-3);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 225, .06), 0 6px 18px -8px rgba(0, 0, 0, .8);
+  transition: transform .45s var(--ease-out);
 }
-.tabs button.active { color: var(--text); background: var(--surface-3); box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, var(--shadow); }
+.tabs:has([data-tab="cart"].active)::before { transform: translateX(calc(100% + .25rem)); }
+.tabs button {
+  position: relative; background: transparent; box-shadow: none; color: var(--muted); font-weight: 600; padding: .62rem .5rem;
+}
+.tabs button.active { color: var(--text); }
+.tabs button:active { transform: none; }
 .badge {
   display: inline-grid; place-items: center; min-width: 1.35rem; height: 1.35rem; padding: 0 .35rem; margin-left: .3rem;
   background: var(--accent); color: var(--accent-ink);
   border-radius: 999px; font-size: .72rem; font-weight: 800; vertical-align: 1px;
 }
+.badge.bump { animation: bump .5s var(--spring); }
 .badge:empty, .badge[data-zero] { display: none; }
 
+.tab-panel { animation: fade-up .4s var(--ease-out); }
+
 /* Menu ------------------------------------------------------------------- */
-.cat { color: var(--text); font-size: .95rem; font-weight: 700; letter-spacing: -.01em; margin: 1.6rem 0 .4rem; }
-.cat:first-child { margin-top: 1rem; }
+/* Small capitals with a hairline running out to the edge: a printed menu's section. */
+.cat {
+  display: flex; align-items: center; gap: .8rem;
+  color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+  margin: 2rem 0 .3rem;
+}
+.cat::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
+.cat:first-child { margin-top: 1.2rem; }
 
 /* A list with hairlines, not a stack of boxes: the dishes are the content. */
 #menu-list .row, #other-rounds .row {
-  display: flex; align-items: center; gap: .9rem;
-  padding: .95rem .1rem; border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1rem .1rem; border-bottom: 1px solid var(--line-soft);
 }
+/* The menu arrives row by row, once (it is only redrawn when it changes). */
+#menu-list > * { animation: fade-up .55s var(--ease-out) both; animation-delay: calc(min(var(--i, 0), 12) * 35ms); }
 #menu-list .row:last-child { border-bottom: 0; }
 .row .grow { flex: 1; min-width: 0; }
 .row .name { font-weight: 620; letter-spacing: -.01em; }
+#menu-list .name { font-family: var(--serif); font-size: 1.12rem; font-weight: 600; letter-spacing: -.005em; line-height: 1.2; }
 .row .sub { color: var(--muted); font-size: .86rem; margin-top: .1rem; }
+#menu-list .sub { color: var(--text); font-weight: 600; font-size: .9rem; margin-top: .35rem; }
+#menu-list .sub .tax { color: var(--faint); font-weight: 500; font-size: .78rem; }
 /* What comes in the dish: two lines, whole on tap. Text, not a pill. The clamp
    sits on the inner span: WebKit ignores it on a button's own box. */
 .row button.desc {
-  display: block; width: 100%; background: none; color: var(--muted); padding: 0; border-radius: 0;
-  margin-top: .15rem; font-size: .82rem; font-weight: 400; line-height: 1.35; text-align: left;
+  display: block; width: 100%; background: none; box-shadow: none; color: var(--muted); padding: 0; border-radius: 0;
+  margin-top: .25rem; font-size: .84rem; font-weight: 400; line-height: 1.4; text-align: left; letter-spacing: 0;
 }
 .row button.desc span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .row button.desc:active { transform: none; }
-.row button.desc.open span { -webkit-line-clamp: unset; }
+.row button.desc.open span { -webkit-line-clamp: unset; animation: fade .35s var(--ease); }
 .row .price { white-space: nowrap; font-weight: 600; }
 .row button.add {
-  width: 2.6rem; height: 2.6rem; padding: 0; flex: none;
-  font-size: 1.4rem; line-height: 1; font-weight: 500;
+  position: relative; display: grid; place-items: center;
+  width: 2.5rem; height: 2.5rem; padding: 0; flex: none;
+  font-size: 1.35rem; line-height: 1; font-weight: 400;
   background: var(--accent-soft); color: var(--accent);
-  box-shadow: inset 0 0 0 1px rgba(236, 154, 82, .35);
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
 }
-.row button.add:active { background: var(--accent); color: var(--accent-ink); }
+.row button.add:active { background: var(--accent); color: var(--accent-ink); transform: scale(.9); }
+/* Added: the plus turns into a tick for a moment. */
+.row button.add.done {
+  font-size: 0; background: var(--accent); color: var(--accent-ink);
+  box-shadow: 0 0 0 6px var(--accent-soft), 0 8px 20px -8px rgba(236, 154, 82, .8);
+  animation: pop .45s var(--spring);
+}
+.row button.add.done::before {
+  content: ""; width: 1.05rem; height: 1.05rem; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 
 /* A dish photo: fixed size so nothing jumps while it loads lazily. */
 .row button.thumb {
-  width: 3.5rem; height: 3.5rem; padding: 0; flex: none; border-radius: var(--radius-sm); overflow: hidden;
-  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-soft);
+  width: 4.5rem; height: 4.5rem; padding: 0; flex: none; border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px rgba(255, 240, 225, .06), 0 10px 22px -12px rgba(0, 0, 0, .9);
 }
-.row button.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.row button.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; animation: fade .5s var(--ease); }
 
 .photo-view {
-  position: fixed; inset: 0; z-index: 40; border-radius: 0; padding: 1.2rem;
-  display: grid; place-items: center; align-content: center; gap: 1rem;
-  background: rgba(6, 4, 2, .88); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  animation: fade .2s var(--ease);
+  position: fixed; inset: 0; z-index: 40; border-radius: 0; padding: 1.4rem;
+  display: grid; place-items: center; align-content: center; gap: 1.1rem;
+  background: rgba(8, 5, 3, .94); box-shadow: none; color: var(--text);
+  backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%);
+  animation: fade .3s var(--ease);
+  transition: opacity .3s var(--ease), display .3s; transition-behavior: allow-discrete;
 }
-.photo-view img { max-width: 100%; max-height: 65dvh; border-radius: var(--radius); box-shadow: var(--shadow); }
-.photo-caption { display: grid; gap: .3rem; max-width: 32rem; width: 100%; text-align: left; color: var(--text); }
-.photo-caption strong { font-size: 1.05rem; }
-.photo-caption span { color: var(--muted); font-weight: 400; font-size: .9rem; line-height: 1.4; }
+.photo-view:active { transform: none; }
+.photo-view[hidden] { opacity: 0; pointer-events: none; }
+/* During the shared-element morph the page snapshots do the fading. */
+.photo-view.morph { animation: none; transition: none; }
+.photo-view img { max-width: 100%; max-height: 62dvh; border-radius: var(--radius); box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .9); }
+.photo-caption { display: grid; gap: .35rem; max-width: 32rem; width: 100%; text-align: left; color: var(--text); animation: fade-up .5s .08s var(--ease-out) both; }
+.photo-caption strong { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; letter-spacing: -.01em; }
+.photo-caption span { color: var(--muted); font-weight: 400; font-size: .92rem; line-height: 1.45; }
+
+::view-transition-group(dish-photo) { animation-duration: .45s; animation-timing-function: var(--ease-out); }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .35s; }
 
 /* Cart ------------------------------------------------------------------- */
-#cart-list { display: grid; gap: .6rem; margin-top: 1rem; }
+#cart-list { display: grid; gap: .65rem; margin-top: 1rem; }
 .row.item {
-  display: block; padding: 1rem 1.05rem; border-radius: var(--radius);
-  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-soft);
+  display: block; padding: 1.05rem 1.1rem; border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255, 240, 225, .025), transparent 60%), var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-soft), var(--lift);
 }
+/* New in the cart: only rows that were not there before (app.js marks them). */
+.row.item.enter { animation: fade-up .5s var(--ease-out) both; }
 .item .top { display: flex; gap: .8rem; align-items: baseline; }
-.shares { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+.item .top .name { font-family: var(--serif); font-size: 1.08rem; font-weight: 600; }
+.shares { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .65rem; }
 .chip {
-  font-size: .76rem; font-weight: 600; padding: .26rem .6rem; border-radius: 999px;
-  background: var(--surface-2); color: var(--muted);
+  font-size: .76rem; font-weight: 600; padding: .28rem .65rem; border-radius: 999px;
+  background: var(--surface-2); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line-soft);
+  transition: background-color .4s var(--ease), color .4s var(--ease);
 }
-.chip.settled { background: rgba(124, 196, 129, .14); color: var(--ok); }
-.chip.held { background: rgba(231, 197, 102, .13); color: var(--warn); }
+.chip.settled { background: rgba(124, 196, 129, .13); color: var(--ok); box-shadow: inset 0 0 0 1px rgba(124, 196, 129, .25); }
+.chip.held { background: rgba(231, 197, 102, .12); color: var(--warn); box-shadow: inset 0 0 0 1px rgba(231, 197, 102, .25); }
 .item-actions { display: flex; gap: 1.1rem; margin-top: .55rem; }
 
 .owed {
-  margin-top: 1.1rem; padding: .6rem 1.05rem; border-radius: var(--radius);
-  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-soft);
+  margin-top: 1.1rem; padding: .65rem 1.1rem; border-radius: var(--radius);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-soft), var(--lift);
+  animation: fade .4s var(--ease);
 }
 .owed:empty { display: none; }
 .owed .line { display: flex; justify-content: space-between; gap: 1rem; padding: .45rem 0; }
-.owed .line.total { border-top: 1px solid var(--line-soft); margin-top: .35rem; padding-top: .75rem; font-weight: 750; }
+.owed .line.total { border-top: 1px solid var(--line-soft); margin-top: .35rem; padding-top: .8rem; font-weight: 750; }
+.owed .line.total span:last-child { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; letter-spacing: -.01em; }
 .owed .state { font-size: .78rem; font-weight: 600; }
 .owed .state.ok { color: var(--ok); }
 .owed .state.pending { color: var(--warn); }
 
 #round-actions { margin-top: 1.1rem; display: grid; gap: .55rem; }
+#round-actions > button { animation: fade-up .45s var(--ease-out) both; }
+#round-actions > button + button { animation-delay: .05s; }
 #bill { margin-top: .6rem; display: grid; gap: .6rem; }
 #bill:empty { display: none; }
 #bill .owed { margin-top: 0; }
 #other-rounds { margin-top: 1.6rem; }
 
 .banner {
-  display: grid; grid-template-columns: auto 1fr; column-gap: .75rem; align-items: start;
-  border-radius: var(--radius); padding: .95rem 1.05rem; margin-top: 0;
-  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-soft);
+  display: grid; grid-template-columns: auto 1fr; column-gap: .8rem; align-items: start;
+  border-radius: var(--radius); padding: 1rem 1.1rem; margin-top: 0;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-soft), var(--lift);
+  animation: fade-up .45s var(--ease-out) both;
 }
 .banner::before {
   content: ""; width: .6rem; height: .6rem; margin-top: .42rem; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 0 .3rem var(--accent-soft); grid-row: span 2;
+  background: var(--accent); grid-row: span 2;
+  animation: breathe 2.4s var(--ease) infinite;
 }
-.banner.ok::before { background: var(--ok); box-shadow: 0 0 0 .3rem rgba(124, 196, 129, .14); }
+.banner.ok::before { background: var(--ok); animation: none; box-shadow: 0 0 0 .3rem rgba(124, 196, 129, .14); }
 .banner strong { display: block; margin-bottom: .1rem; }
 .banner .muted { font-size: .92rem; }
 
-.empty { color: var(--muted); text-align: center; padding: 3rem 1rem; line-height: 1.6; }
+.empty { color: var(--muted); text-align: center; padding: 3.2rem 1rem; line-height: 1.6; animation: fade .5s var(--ease); }
+.empty::before {
+  content: ""; display: block; width: 3.4rem; height: 3rem; margin: 0 auto 1rem; opacity: .5;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 28'%3E%3Cg fill='none' stroke='%23a69a8f' stroke-width='1.6'%3E%3Ccircle cx='10' cy='10' r='7.5'/%3E%3Ccircle cx='22' cy='10' r='7.5'/%3E%3Ccircle cx='16' cy='19' r='7.5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+}
 
 /* Bottom bar ------------------------------------------------------------- */
 footer {
-  position: fixed; left: .7rem; right: .7rem; bottom: calc(.7rem + env(safe-area-inset-bottom));
+  position: fixed; left: .7rem; right: .7rem; bottom: calc(.7rem + env(safe-area-inset-bottom)); z-index: 10;
   max-width: 33rem; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  padding: .7rem .7rem .7rem 1.2rem; border-radius: 999px;
-  background: rgba(38, 32, 28, .88); backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  box-shadow: inset 0 0 0 1px var(--line), var(--shadow);
-  animation: rise .35s var(--ease);
+  padding: .7rem .7rem .7rem 1.3rem; border-radius: 999px;
+  background: rgba(36, 30, 26, .82); backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255, 240, 225, .07), 0 24px 50px -20px rgba(0, 0, 0, .95);
+  animation: rise .5s var(--ease-out);
+  transition: opacity .3s var(--ease), transform .35s var(--ease), display .35s; transition-behavior: allow-discrete;
 }
-footer strong { display: block; font-size: 1.3rem; letter-spacing: -.02em; }
-footer .muted { font-size: .75rem; font-weight: 600; }
-footer button { padding: .85rem 1.4rem; white-space: nowrap; }
+footer[hidden] { opacity: 0; transform: translateY(1.5rem); }
+footer strong { display: block; font-family: var(--serif); font-size: 1.45rem; font-weight: 600; letter-spacing: -.015em; line-height: 1.15; }
+footer .muted { font-size: .74rem; font-weight: 600; }
+footer button { padding: .9rem 1.45rem; white-space: nowrap; }
+/* A changed amount or label settles in rather than snapping. */
+.tick { animation: tick .4s var(--ease-out); }
 
 /* Sheets ----------------------------------------------------------------- */
 .sheet {
   position: fixed; inset: 0; z-index: 20;
-  background: rgba(6, 4, 2, .62); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  background: rgba(6, 4, 2, .6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: flex-end;
-  animation: fade .2s var(--ease);
+  animation: fade .3s var(--ease);
+  transition: opacity .3s var(--ease), display .35s; transition-behavior: allow-discrete;
 }
+.sheet[hidden] { opacity: 0; pointer-events: none; }
 .sheet-body {
   width: 100%; max-width: 34rem; margin: 0 auto;
-  background: var(--surface); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: .7rem 1.3rem calc(1.4rem + env(safe-area-inset-bottom));
-  box-shadow: inset 0 1px 0 var(--line), 0 -20px 50px -20px rgba(0, 0, 0, .8);
-  animation: rise .3s var(--ease);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface) 7rem);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: .7rem 1.35rem calc(1.4rem + env(safe-area-inset-bottom));
+  box-shadow: inset 0 1px 0 rgba(255, 240, 225, .08), 0 -20px 50px -20px rgba(0, 0, 0, .8);
+  animation: slide-up .5s var(--ease-out);
+  transition: transform .35s var(--ease);
 }
+.sheet[hidden] .sheet-body { transform: translateY(100%); }
 .sheet-body::before {
   /* Grabber: reads as "this came up from below and goes back down". */
   content: ""; display: block; width: 2.4rem; height: .3rem; border-radius: 999px;
-  background: var(--line); margin: 0 auto 1.1rem;
+  background: var(--line); margin: 0 auto 1.2rem;
 }
+.sheet-body h3 { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; letter-spacing: -.01em; }
 .sheet-actions { display: flex; gap: .6rem; margin-top: 1.3rem; }
 .sheet-actions button { flex: 1; }
 .cash-options { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .cash-options .sheet-actions { margin-top: .6rem; }
 
-.amount { font-size: 2.6rem; font-weight: 800; margin: .2rem 0 .2rem; letter-spacing: -.035em; }
+.amount { font-family: var(--serif); font-size: 3rem; font-weight: 600; margin: .1rem 0 .2rem; letter-spacing: -.025em; line-height: 1.1; }
 
 .person {
-  display: flex; align-items: center; gap: .8rem; padding: .85rem .2rem;
+  display: flex; align-items: center; gap: .8rem; padding: .9rem .2rem;
   border-bottom: 1px solid var(--line-soft); font-weight: 600;
 }
 .person input { width: 1.3rem; height: 1.3rem; flex: none; accent-color: var(--accent); }
@@ -293,18 +412,34 @@ footer button { padding: .85rem 1.4rem; white-space: nowrap; }
 /* At the top: at the bottom it covered the pay bar and the open sheet. */
 .toast {
   position: fixed; left: 50%; top: calc(.8rem + env(safe-area-inset-top)); transform: translateX(-50%);
-  background: rgba(49, 41, 36, .96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  box-shadow: inset 0 0 0 1px var(--line), var(--shadow);
-  padding: .7rem 1.1rem; border-radius: 999px; z-index: 30;
+  background: rgba(47, 39, 34, .92); backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255, 240, 225, .07), var(--shadow);
+  padding: .72rem 1.15rem; border-radius: 999px; z-index: 50;
   max-width: calc(100vw - 2rem); width: max-content; text-align: center; font-size: .9rem; font-weight: 600;
-  animation: drop .25s var(--ease);
+  animation: drop .45s var(--spring);
+  transition: opacity .3s var(--ease), transform .3s var(--ease), display .3s; transition-behavior: allow-discrete;
 }
+.toast[hidden] { opacity: 0; transform: translate(-50%, -.8rem) scale(.96); }
 .toast.bad { color: var(--err); box-shadow: inset 0 0 0 1px rgba(231, 119, 106, .5), var(--shadow); }
 
-@keyframes rise { from { transform: translateY(1.2rem); opacity: 0; } }
-@keyframes drop { from { transform: translate(-50%, -.8rem); opacity: 0; } }
+@keyframes rise { from { transform: translateY(1.5rem); opacity: 0; } }
+@keyframes slide-up { from { transform: translateY(100%); } }
+@keyframes fade-up { from { transform: translateY(.6rem); opacity: 0; } }
+@keyframes drop { from { transform: translate(-50%, -1rem) scale(.96); opacity: 0; } }
 @keyframes fade { from { opacity: 0; } }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } }
+@keyframes bump { 40% { transform: scale(1.35); } }
+@keyframes tick { from { transform: translateY(.35rem); opacity: .2; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes breathe { 50% { box-shadow: 0 0 0 .38rem var(--accent-soft); } 0%, 100% { box-shadow: 0 0 0 .18rem var(--accent-soft); } }
+
+@media (hover: hover) {
+  button:not(.text, .desc, .thumb, .photo-view):hover { filter: brightness(1.06); }
+  .row button.thumb:hover img { transform: scale(1.05); }
+  .row button.thumb img { transition: transform .5s var(--ease-out); }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before { animation: none !important; transition: none !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }

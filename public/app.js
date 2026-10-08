@@ -45,6 +45,28 @@ function toast(message, bad = false) {
   toast.timer = setTimeout(() => (el.hidden = true), 2800)
 }
 
+/**
+ * The page polls every 2 s. Rewriting a block whose markup did not change
+ * would restart its entrance animation and drop a tap in progress, so only
+ * write when the markup is new.
+ */
+const painted = new WeakMap()
+function paint(el, html) {
+  if (painted.get(el) === html) return false
+  painted.set(el, html)
+  el.innerHTML = html
+  return true
+}
+
+/** Set text, and let a change settle in rather than snap. */
+function setText(el, text) {
+  if (el.textContent === text) return
+  el.textContent = text
+  el.classList.remove('tick')
+  void el.offsetWidth
+  el.classList.add('tick')
+}
+
 /** The RPCs answer `{status:'rejected', reason}` for ordinary refusals. */
 const REASONS = {
   nickname_taken: 'Ese apodo ya está en la mesa. Probá con otro.',
@@ -126,12 +148,12 @@ function render() {
   if (!state) return
 
   $('table-label').textContent = `${state.venue.name} · ${state.table.label}`
-  $('who').innerHTML = state.participants
+  paint($('who'), state.participants
     .map((p) => `<span class="${p.id === me.participantId ? 'me' : ''}">${escape(p.nickname)}</span>`)
-    .join('')
+    .join(''))
 
   const round = currentRound()
-  $('round-label').textContent = round ? `Ronda ${round.number}` : 'Mesa'
+  setText($('round-label'), round ? `Ronda ${round.number}` : 'Mesa')
 
   renderMenu()
   renderCart(round)
@@ -150,37 +172,48 @@ function renderMenu() {
   const byCategory = {}
   for (const p of state.menu) (byCategory[p.category ?? 'Carta'] ??= []).push(p)
 
+  let i = 0
   $('menu-list').innerHTML = Object.entries(byCategory)
     .map(([category, items]) => `
-      <p class="cat">${escape(category)}</p>
+      <p class="cat" style="--i:${i++}">${escape(category)}</p>
       ${items.map((p) => `
-        <div class="row">
+        <div class="row" style="--i:${i++}">
           ${p.photo ? `
             <button class="thumb" data-photo="${p.id}/${p.photo}" aria-label="Ver foto de ${escape(p.name)}">
-              <img src="/photos/${p.id}/${p.photo}/thumb.jpg" alt="" width="56" height="56" loading="lazy" decoding="async">
+              <img src="/photos/${p.id}/${p.photo}/thumb.jpg" alt="" width="72" height="72" loading="lazy" decoding="async">
             </button>` : ''}
           <div class="grow">
             <div class="name">${escape(p.name)}</div>
             ${p.description ? `<button class="desc"><span>${escape(p.description)}</span></button>` : ''}
-            <div class="sub">${money(p.unit_price)}${Number(p.tax_rate) ? ' + imp.' : ''}</div>
+            <div class="sub">${money(p.unit_price)}${Number(p.tax_rate) ? ' <span class="tax">+ imp.</span>' : ''}</div>
           </div>
           <button class="add" data-add="${p.id}" aria-label="Agregar ${escape(p.name)}">+</button>
         </div>`).join('')}`)
     .join('')
 }
 
+// Cart rows already shown: only new ones animate in.
+const seenItems = new Set()
+
 function renderCart(round) {
   const items = round?.items ?? []
   const badge = $('cart-count')
-  badge.textContent = items.length
+  if (badge.textContent !== String(items.length)) {
+    if (Number(badge.textContent) < items.length) {
+      badge.classList.remove('bump')
+      void badge.offsetWidth
+      badge.classList.add('bump')
+    }
+    badge.textContent = items.length
+  }
   badge.toggleAttribute('data-zero', items.length === 0)
 
   const editable = round?.status === 'draft'
 
-  $('cart-list').innerHTML = items.length === 0
+  paint($('cart-list'), items.length === 0
     ? `<p class="empty">Nada pedido todavía.<br>Agregá algo de la carta.</p>`
     : items.map((item) => `
-        <div class="row item">
+        <div class="row item" data-item="${item.id}">
           <div class="grow">
             <div class="top">
               <span class="name grow">${escape(item.name)}${item.quantity > 1 ? ` ×${item.quantity}` : ''}</span>
@@ -198,7 +231,14 @@ function renderCart(round) {
                 <button class="text" data-void="${item.id}">Quitar</button>
               </div>` : ''}
           </div>
-        </div>`).join('')
+        </div>`).join(''))
+  // Marked on the element, not in the markup: the markup must stay the same
+  // on the next poll or the row is rewritten (and would animate again).
+  for (const item of items) {
+    if (seenItems.has(item.id)) continue
+    seenItems.add(item.id)
+    $('cart-list').querySelector(`[data-item="${item.id}"]`)?.classList.add('enter')
+  }
 
   renderOwed(round)
   renderRoundActions(round)
@@ -220,10 +260,10 @@ const myFreeTab = () => {
 function renderBill() {
   const el = $('bill')
   if (state.session.status === 'closed') {
-    el.innerHTML = `
+    paint(el, `
       <div class="banner ok"><strong>Mesa cerrada</strong>
       <span class="muted">La cuenta de esta mesa quedó cerrada. ¡Gracias por venir!</span></div>
-      <button class="ghost" id="start-over">Empezar una mesa nueva</button>`
+      <button class="ghost" id="start-over">Empezar una mesa nueva</button>`)
     return
   }
 
@@ -231,13 +271,13 @@ function renderBill() {
     // Not while a round is still being collected: that round has to be paid
     // first, and the button next to "En cobro" read as a second way to pay.
     const collecting = state.rounds.some((r) => ['locked_for_payment', 'requires_staff_attention'].includes(r.status))
-    el.innerHTML = state.rounds.some((r) => r.status !== 'draft') && !collecting
+    paint(el, state.rounds.some((r) => r.status !== 'draft') && !collecting
       ? `<button class="ghost" id="ask-bill">Pedir la cuenta</button>`
-      : ''
+      : '')
     return
   }
 
-  el.innerHTML = `
+  paint(el, `
     <div class="banner"><strong>Cuenta pedida</strong>
       <span class="muted">${tabTotal() > 0
         ? 'Ya no se puede pedir más. Cada quien paga lo suyo, o alguien cubre el resto.'
@@ -250,11 +290,11 @@ function renderBill() {
             <span>${money(p.unpaid)}</span>
           </div>`).join('')}
         <div class="line total"><span>Falta pagar</span><span>${money(tabTotal())}</span></div>
-      </div>` : ''}`
+      </div>` : ''}`)
 }
 
 function renderOwed(round) {
-  if (!round || round.items.length === 0) return ($('owed').innerHTML = '')
+  if (!round || round.items.length === 0) return paint($('owed'), '')
 
   const totals = new Map()
   for (const item of round.items) {
@@ -266,7 +306,7 @@ function renderOwed(round) {
     }
   }
 
-  $('owed').innerHTML = `
+  paint($('owed'), `
     ${[...totals.entries()].map(([id, t]) => `
       <div class="line">
         <span>${escape(nameOf(id))}${id === me.participantId ? ' (vos)' : ''}</span>
@@ -280,22 +320,22 @@ function renderOwed(round) {
     <div class="line total"><span>Total</span><span>${money(round.total)}</span></div>
     ${round.status === 'locked_for_payment'
       ? `<div class="line"><span class="muted">Sin cubrir</span><span class="muted">${money(round.outstanding)}</span></div>`
-      : ''}`
+      : ''}`)
 }
 
 function renderRoundActions(round) {
   const el = $('round-actions')
-  if (!round) return (el.innerHTML = '')
+  if (!round) return paint(el, '')
 
   if (round.status === 'draft') {
-    el.innerHTML = round.items.length === 0 ? '' : `
+    paint(el, round.items.length === 0 ? '' : `
       <button data-close="as_ordered">Cerrar ronda · cada quien lo suyo</button>
-      <button class="ghost" data-close="equal">Cerrar ronda · partes iguales</button>`
+      <button class="ghost" data-close="equal">Cerrar ronda · partes iguales</button>`)
     return
   }
 
   if (round.status === 'locked_for_payment') {
-    el.innerHTML = `
+    paint(el, `
       <div class="banner">
         <strong>En cobro</strong>
         <span class="muted">
@@ -303,34 +343,34 @@ function renderRoundActions(round) {
             ? 'La cocina no recibe nada hasta que esté cubierto el 100%.'
             : 'Faltan ' + money(round.outstanding) + '.'}
         </span>
-      </div>`
+      </div>`)
     return
   }
 
   if (round.status === 'paid_and_dispatched') {
     // After the bill (or once closed) nothing more can be ordered: saying so
     // here would contradict the bill banner right below.
-    el.innerHTML = `
+    paint(el, `
       <div class="banner ok"><strong>Pedido en cocina</strong>
       ${billRequested() || state.session.status === 'closed' ? '' : `
-        <span class="muted">Ya podés seguir pidiendo: va a una ronda nueva.</span>`}</div>`
+        <span class="muted">Ya podés seguir pidiendo: va a una ronda nueva.</span>`}</div>`)
     return
   }
 
-  el.innerHTML = `<div class="banner"><strong>Necesita al mesero</strong>
-    <span class="muted">Algo no cuadró y alguien del local tiene que resolverlo.</span></div>`
+  paint(el, `<div class="banner"><strong>Necesita al mesero</strong>
+    <span class="muted">Algo no cuadró y alguien del local tiene que resolverlo.</span></div>`)
 }
 
 function renderOtherRounds() {
   const others = state.rounds.filter((r) => r.id !== currentRound()?.id)
-  $('other-rounds').innerHTML = others.length === 0 ? '' : `
+  paint($('other-rounds'), others.length === 0 ? '' : `
     <p class="cat">Rondas anteriores</p>
     ${others.map((r) => `
       <div class="row">
         <div class="grow"><div class="name">Ronda ${r.number}</div>
         <div class="sub">${r.status === 'paid_and_dispatched' ? 'en cocina' : r.status}</div></div>
         <span class="price">${money(r.total)}</span>
-      </div>`).join('')}`
+      </div>`).join('')}`)
 }
 
 function renderBar(round) {
@@ -344,8 +384,8 @@ function renderBar(round) {
 
   if (reservation) {
     bar.hidden = false
-    $('bar-label').textContent = 'Reservado para vos'
-    $('bar-amount').textContent = money(Number(reservation.order_amount) + Number(reservation.tip_amount))
+    setText($('bar-label'), 'Reservado para vos')
+    setText($('bar-amount'), money(Number(reservation.order_amount) + Number(reservation.tip_amount)))
     $('bar-action').textContent = 'Pagar ahora'
     $('bar-action').dataset.action = 'pay'
     return
@@ -355,8 +395,8 @@ function renderBar(round) {
   const asked = state.my_cash_request
   if (asked) {
     bar.hidden = false
-    $('bar-label').textContent = `Esperando al mesero · ${METHOD[asked.method]}`
-    $('bar-amount').textContent = money(asked.amount)
+    setText($('bar-label'), `Esperando al mesero · ${METHOD[asked.method]}`)
+    setText($('bar-amount'), money(asked.amount))
     $('bar-action').textContent = 'Cancelar'
     $('bar-action').dataset.action = 'cancel-cash'
     return
@@ -371,8 +411,8 @@ function renderBar(round) {
       return
     }
     bar.hidden = false
-    $('bar-label').textContent = mine > 0 ? 'Tu parte de la cuenta' : 'Falta de la cuenta'
-    $('bar-amount').textContent = money(mine > 0 ? mine : free)
+    setText($('bar-label'), mine > 0 ? 'Tu parte de la cuenta' : 'Falta de la cuenta')
+    setText($('bar-amount'), money(mine > 0 ? mine : free))
     $('bar-action').textContent = mine > 0 ? 'Pagar lo mío' : 'Cubrir el resto'
     $('bar-action').dataset.action = mine > 0 ? 'my_items' : 'remaining'
     $('bar-action').dataset.scope = 'tab'
@@ -391,8 +431,8 @@ function renderBar(round) {
     .reduce((a, s) => a + Number(s.owed_amount), 0)
 
   bar.hidden = false
-  $('bar-label').textContent = mine > 0 ? 'Tu parte' : 'Falta por cubrir'
-  $('bar-amount').textContent = money(mine > 0 ? mine : round.outstanding)
+  setText($('bar-label'), mine > 0 ? 'Tu parte' : 'Falta por cubrir')
+  setText($('bar-amount'), money(mine > 0 ? mine : round.outstanding))
   $('bar-action').textContent = mine > 0 ? 'Pagar lo mío' : 'Cubrir el resto'
   $('bar-action').dataset.action = mine > 0 ? 'my_items' : 'remaining'
 }
@@ -414,6 +454,10 @@ document.addEventListener('click', async (e) => {
         product_id: btn.dataset.add, quantity: 1,
       })
       if (r.status !== 'added') return toast(explain(r), true)
+      // The plus turns into a tick for a moment: it is in the cart.
+      btn.classList.add('done')
+      clearTimeout(btn.doneTimer)
+      btn.doneTimer = setTimeout(() => btn.classList.remove('done'), 1100)
       toast('Agregado')
       await refresh()
     }
@@ -431,14 +475,8 @@ document.addEventListener('click', async (e) => {
     // Cut to two lines; a tap shows it whole. The menu is not redrawn on polls, so it stays open.
     if (btn.classList.contains('desc')) btn.classList.toggle('open')
 
-    if (btn.dataset.photo) {
-      const dish = state.menu.find((p) => p.id === btn.dataset.photo.split('/')[0])
-      $('photo-name').textContent = dish?.name ?? ''
-      $('photo-desc').textContent = dish?.description ?? ''
-      $('photo-large').src = `/photos/${btn.dataset.photo}/large.jpg`
-      $('photo-view').hidden = false
-    }
-    if (btn.id === 'photo-view') $('photo-view').hidden = true
+    if (btn.dataset.photo) await openPhoto(btn)
+    if (btn.id === 'photo-view') await closePhoto()
 
     if (btn.dataset.close) {
       const r = await api('/api/round/close', {
@@ -471,6 +509,54 @@ document.addEventListener('click', async (e) => {
     toast(err.message, true)
   }
 })
+
+// ---------------------------------------------------------------------------
+// The large photo grows out of its thumbnail and shrinks back into it, where
+// the browser can morph between the two (View Transitions). Elsewhere it fades.
+// ---------------------------------------------------------------------------
+const canMorph = () => Boolean(document.startViewTransition) && !matchMedia('(prefers-reduced-motion: reduce)').matches
+let photoOrigin = null
+
+async function morph(from, to, update) {
+  const view = $('photo-view')
+  view.classList.add('morph')
+  from.style.viewTransitionName = 'dish-photo'
+  const t = document.startViewTransition(async () => {
+    from.style.viewTransitionName = ''
+    await update()
+    to.style.viewTransitionName = 'dish-photo'
+  })
+  await t.finished.catch(() => {})
+  to.style.viewTransitionName = ''
+  view.classList.remove('morph')
+}
+
+async function openPhoto(btn) {
+  const dish = state.menu.find((p) => p.id === btn.dataset.photo.split('/')[0])
+  const large = $('photo-large')
+  const show = async () => {
+    $('photo-name').textContent = dish?.name ?? ''
+    $('photo-desc').textContent = dish?.description ?? ''
+    large.src = `/photos/${btn.dataset.photo}/large.jpg`
+    $('photo-view').hidden = false
+    // Wait briefly for the image so the morph lands on it, never long.
+    await Promise.race([large.decode().catch(() => {}), new Promise((r) => setTimeout(r, 450))])
+  }
+  photoOrigin = btn.querySelector('img')
+  if (!canMorph() || !photoOrigin) return show()
+  await morph(photoOrigin, large, show)
+}
+
+async function closePhoto() {
+  const view = $('photo-view')
+  const origin = photoOrigin
+  photoOrigin = null
+  // The thumbnail must still be on screen to shrink into.
+  const visible = origin?.isConnected && origin.getBoundingClientRect().bottom > 0 &&
+    origin.getBoundingClientRect().top < innerHeight
+  if (!canMorph() || !visible) return void (view.hidden = true)
+  await morph($('photo-large'), origin, () => { view.hidden = true })
+}
 
 function openSharing(itemId) {
   sharingItemId = itemId

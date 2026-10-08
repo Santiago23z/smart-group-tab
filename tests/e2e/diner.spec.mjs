@@ -68,6 +68,13 @@ test('ordering a product puts it in the cart at the price the menu showed', asyn
   // 32.000 + 8% tax, computed by the database and never by the browser.
   await expect(cart).toContainText('$34.560')
   await expect(page.locator('#cart-count')).toHaveText('1')
+
+  // Polls that change nothing leave the row alone: rewriting it would replay
+  // its entrance and drop a tap in progress.
+  await cart.locator('.row.item').evaluate((row) => { row.dataset.probe = 'same-element' })
+  await settled(page)
+  await settled(page)
+  await expect(cart.locator('.row.item')).toHaveAttribute('data-probe', 'same-element')
 })
 
 test('an item can be removed while the round is still a draft', async ({ page }) => {

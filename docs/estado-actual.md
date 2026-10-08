@@ -223,6 +223,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 2 oct | Una foto por plato, desde la pantalla de la cocina |
 | 2 oct | El comensal avisa desde el celular que paga en efectivo o datáfono |
 | 7 oct | Descripción de cada plato, desde la hoja de la carta |
+| 7 oct | Pulido visual de las dos pantallas: letra con serifa en títulos y animaciones suaves |
 
 ## Lo que falta
 
