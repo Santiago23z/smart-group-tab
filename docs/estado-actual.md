@@ -67,7 +67,13 @@ Una sola pantalla para el personal, protegida con un enlace secreto:
   cuánto, en qué mesa y hace cuánto. **Cobrar en caja** abre el cobro ya listo para esa persona y
   ese método; **Descartar** quita el aviso. El aviso se va solo si esa parte se paga por cualquier
   camino (incluso Wompi).
-- **Pedidos:** lo que hay que preparar, con el tiempo de espera y un botón "Listo".
+- **Pedidos:** lo que hay que preparar, con el tiempo de espera y un botón "Listo". Cada pedido
+  dice si su ronda está **sin pagar**, **pagado · por llevar** o con **pérdida asumida**, nunca
+  cuánto. En una mesa con cuenta abierta el pedido llega *sin pagar* y cambia solo cuando la mesa
+  paga.
+- **Hoy $X:** arriba, junto al reloj, la plata recibida hoy (día de Colombia, desde las 00:00).
+  Al tocarlo se ve cuánto entró por Wompi, en efectivo y por datáfono, cuánto es propina y lo
+  devuelto hoy (aparte, no se resta). Una pérdida asumida no cuenta como plata recibida.
 - **Mesas que necesitan a alguien:** alertas con su motivo y el botón que lo resuelve.
   - Plata que no se pudo aplicar → **Devolver** (se registra; la plata se devuelve a mano, por
     Nequi, transferencia o efectivo) → **Llegó** / **No llegó**.
@@ -224,6 +230,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 2 oct | El comensal avisa desde el celular que paga en efectivo o datáfono |
 | 7 oct | Descripción de cada plato, desde la hoja de la carta |
 | 7 oct | Pulido visual de las dos pantallas: letra con serifa en títulos y animaciones suaves |
+| 12 oct | La cocina ve si cada pedido está pagado, y cuánta plata entró hoy |
 
 ## Lo que falta
 

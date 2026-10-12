@@ -38,6 +38,8 @@ const ACTIVE_TICKETS = `
            'venue',             k.ticket #> '{venue,name}',
            'first_received_at', k.first_received_at,
            'receive_count',     k.receive_count,
+           -- A word, never an amount: unpaid, paid or written_off.
+           'payment',           round_payment_state(k.round_id),
            'items', (
              select coalesce(jsonb_agg(jsonb_build_object(
                       'name',       i -> 'name',
@@ -137,18 +139,19 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
         if (!hasBearer(req.headers, staffToken)) return reply(401, { error: 'staff_only' })
 
         if (req.method === 'GET' && url.pathname === '/kds/api/state') {
-          const [tickets, alerts, collections, openTables, cashRequests] = await Promise.all([
+          const [tickets, alerts, collections, openTables, cashRequests, takings] = await Promise.all([
             one(ACTIVE_TICKETS),
             one(`select staff_alerts(make_interval(mins => $1::int)) as r`, [stallMinutes]),
             one(`select staff_collections() as r`),
             one(`select staff_open_tables() as r`),
             one(`select staff_cash_requests() as r`),
+            one(`select staff_takings_today() as r`),
           ])
           // The screen times tickets against the server's clock, not the
           // tablet's, which nobody in a kitchen will ever set.
           return reply(200, {
             now: new Date().toISOString(), tickets, alerts, collections, open_tables: openTables,
-            cash_requests: cashRequests,
+            cash_requests: cashRequests, takings,
           })
         }
 

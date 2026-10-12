@@ -98,6 +98,14 @@ h2 { font-size: 1.05rem; margin: 0; letter-spacing: -.01em; font-weight: 700; }
 }
 .clock { margin-left: auto; font-size: 1.15rem; font-weight: 700; color: var(--muted); }
 #open-menu { padding: .55rem 1.1rem; }
+.takings { padding: .55rem 1.1rem; font-weight: 600; color: var(--muted); }
+.takings strong { color: var(--text); font-weight: 800; margin-left: .25rem; }
+.takings-lines { display: grid; grid-template-columns: 1fr auto; gap: .55rem 1.5rem; margin: .2rem 0 0; }
+.takings-lines dt { color: var(--muted); font-weight: 600; }
+.takings-lines dd { margin: 0; text-align: right; font-weight: 700; }
+.takings-lines .total { color: var(--text); font-size: 1.25rem; font-weight: 800; padding-top: .55rem; border-top: 1px solid var(--line); }
+.takings-lines dd.total { font-family: var(--serif); font-weight: 600; font-size: 1.5rem; }
+.takings-lines .note { font-size: .9rem; color: var(--faint); }
 
 .banner {
   margin: 0; padding: .8rem 1.4rem; font-weight: 700; font-size: 1.1rem;
@@ -169,7 +177,16 @@ button:disabled { opacity: .45; cursor: default; }
 }
 .late .ticket-wait { background: var(--warn-soft); color: var(--warn); }
 .very-late .ticket-wait { background: var(--err-soft); color: var(--err); }
-.ticket-round { color: var(--muted); font-weight: 600; margin-top: -.45rem; }
+.ticket-round { color: var(--muted); font-weight: 600; margin-top: -.45rem; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+/* Whether the round is paid, in a word. Amber outline: something is still owed.
+   Green: paid, take it to the table. Grey: written off. Never an amount. */
+.pay {
+  font-size: .82rem; font-weight: 800; padding: .16rem .6rem; border-radius: 999px; letter-spacing: .01em;
+  transition: background-color .4s var(--ease), color .4s var(--ease), box-shadow .4s var(--ease);
+}
+.pay.unpaid { color: var(--warn); box-shadow: inset 0 0 0 1.5px rgba(231, 197, 102, .55); }
+.pay.paid { color: #0d1a0e; background: var(--ok); }
+.pay.written_off { color: var(--muted); background: var(--surface-3); }
 
 .items { list-style: none; margin: 0; padding: .2rem 0 0; display: grid; gap: .55rem; border-top: 1px solid var(--line-soft); padding-top: .7rem; }
 .items li { display: grid; grid-template-columns: 2.6rem 1fr; align-items: baseline; font-size: 1.12rem; font-weight: 600; }

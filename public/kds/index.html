@@ -23,6 +23,8 @@
   <header class="topbar">
     <p class="brand">Ronda <span>Cocina</span></p>
     <span id="clock" class="clock"></span>
+    <!-- Money received today; the breakdown is one tap away. -->
+    <button class="secondary takings" id="open-takings">Hoy <strong id="takings-total">$0</strong></button>
     <button class="secondary" id="open-menu">Carta</button>
   </header>
   <p id="stall" class="banner" hidden></p>
@@ -138,6 +140,18 @@
   <section id="menu-preview" hidden></section>
   <input type="file" id="photo-file" accept="image/*" hidden>
   <div id="menu-list"></div>
+</dialog>
+
+<!-- Lo recibido hoy, por medio de pago. Solo lectura. -->
+<dialog id="takings-dialog">
+  <form method="dialog">
+    <h2>Recibido hoy</h2>
+    <p class="muted" id="takings-day"></p>
+    <dl class="takings-lines" id="takings-lines"></dl>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" data-close>Cerrar</button>
+    </div>
+  </form>
 </dialog>
 
 <!-- Confirmación genérica para acciones que no se deshacen. -->

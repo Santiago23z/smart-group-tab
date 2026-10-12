@@ -523,3 +523,40 @@ test('a diner asks to pay in cash, the kitchen sees it, collects it, and both sc
       where t.qr_token = $1`, [qr])
   expect(s.status).toBe('paid_and_dispatched')
 })
+
+// ---------------------------------------------------------------------------
+// Paid or not, and what came in today
+// ---------------------------------------------------------------------------
+const pesos = (text) => Number(text.replace(/\D/g, ''))
+
+test('an open-tab ticket turns "pagado · por llevar" when the table pays, and "Hoy" counts the money', async ({ page, baseURL }) => {
+  const { sessionId, participantId, label } = await servedTab('kds-paid-badge')
+  const [{ id: roundId }] = await sql(`select id from rounds where session_id = $1 and status = 'paid_and_dispatched'`, [sessionId])
+
+  await openScreen(page)
+  await expect(page.locator('#clock')).not.toBeEmpty()
+  const before = pesos(await page.locator('#takings-total').textContent())
+
+  await deliver(baseURL, roundId)
+  const ticket = page.locator(`.ticket[data-round="${roundId}"]`)
+  await expect(ticket.locator('.ticket-table')).toHaveText(label, { timeout: 8000 })
+  await expect(ticket.locator('.pay')).toHaveText('sin pagar')
+
+  // The table pays its whole tab in cash at the till.
+  await rpc('request_bill', sessionId, participantId)
+  const paid = await rpc('staff_record_manual_payment', 'tab', sessionId, null, 'cash', null, 0)
+  expect(paid.status).toBe('recorded')
+
+  // Same ticket, no reload: paid, and still no amount on it.
+  await expect(ticket.locator('.pay')).toHaveText('pagado · por llevar', { timeout: 8000 })
+  await expect(ticket).not.toContainText('$')
+
+  await expect.poll(async () => pesos(await page.locator('#takings-total').textContent()), { timeout: 8000 })
+    .toBe(before + Number(paid.amount))
+  await page.locator('#open-takings').click()
+  const dialog = page.locator('#takings-dialog')
+  await expect(dialog).toBeVisible()
+  for (const line of ['Wompi', 'Efectivo', 'Datáfono', 'Total', 'propinas', 'Devuelto hoy']) await expect(dialog).toContainText(line)
+  await dialog.getByRole('button', { name: 'Cerrar' }).click()
+  await expect(dialog).toBeHidden()
+})

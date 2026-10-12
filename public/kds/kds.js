@@ -162,6 +162,9 @@ function describe(reason) {
   }
 }
 
+// Whether the round is paid, as a word: the cooks never see an amount.
+const PAYMENT = { unpaid: 'sin pagar', paid: 'pagado · por llevar', written_off: 'pérdida asumida' }
+
 function renderTickets(tickets) {
   $('order-count').textContent = tickets.length ? `${tickets.length} en cola` : ''
   $('no-orders').hidden = tickets.length > 0
@@ -174,7 +177,8 @@ function renderTickets(tickets) {
       el('div', { class: 'ticket-head' },
         el('span', { class: 'ticket-table' }, t.table ?? '¿mesa?'),
         el('span', { class: 'ticket-wait', 'data-since': t.first_received_at }, w.text)),
-      el('span', { class: 'ticket-round' }, `Ronda ${t.round_number}`),
+      el('span', { class: 'ticket-round' }, `Ronda ${t.round_number}`,
+        el('span', { class: `pay ${t.payment}` }, PAYMENT[t.payment] ?? t.payment)),
       el('ul', { class: 'items' }, ...t.items.map((i) =>
         el('li', {},
           el('span', { class: 'qty' }, `${i.quantity}×`),
@@ -519,6 +523,22 @@ $('menu-file').addEventListener('change', async (e) => {
 $('open-menu').addEventListener('click', openMenu)
 
 // ---------------------------------------------------------------------------
+// Recibido hoy: the total in the top bar, the breakdown in a dialog.
+// ---------------------------------------------------------------------------
+function renderTakings(t) {
+  $('takings-total').textContent = money(t.total)
+  const [y, m, d] = String(t.day).split('-')
+  $('takings-day').textContent = `${d}/${m}/${y}, desde las 00:00 (hora de Colombia).`
+  const line = (label, value, cls = '') => [el('dt', { class: cls }, label), el('dd', { class: cls }, money(value))]
+  $('takings-lines').replaceChildren(
+    ...line('Wompi', t.wompi), ...line('Efectivo', t.cash), ...line('Datáfono', t.card_terminal),
+    ...line('Total', t.total, 'total'),
+    ...line('De eso, propinas', t.tips, 'note'),
+    ...line('Devuelto hoy (aparte)', t.refunded, 'note'))
+}
+$('open-takings').addEventListener('click', () => $('takings-dialog').showModal())
+
+// ---------------------------------------------------------------------------
 // Dish photos: shrunk here, on the tablet, before anything is sent. A 4 MB
 // phone photo becomes a ~20 KB thumbnail and a ~150 KB larger version, so the
 // server never decodes images and diners on bad wifi download almost nothing.
@@ -654,6 +674,7 @@ async function refresh() {
     renderAlerts(state.alerts)
     renderCollections(state.collections)
     renderOpenTables(state.open_tables)
+    renderTakings(state.takings)
     primed = true
   } catch (err) {
     if (err.message !== 'staff_only') $('offline').hidden = false

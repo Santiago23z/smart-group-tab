@@ -32,6 +32,7 @@ construction. That is the whole design.
 | 8 | Closing a table — the bill, one payment per person across rounds, write-off | **verified under concurrency and in a browser** |
 | 9 | Cash and card-terminal payments recorded by staff | **verified in a browser** |
 | 10 | Diners ask from the app to pay in cash or on the terminal | **verified in a browser** |
+| 11 | Kitchen tickets say whether the round is paid; today's takings on the kitchen screen | **verified in a browser** |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
 finished and verified while the ordering half did not exist at all: there were
@@ -372,6 +373,13 @@ npm run web       # the diner's side
 
 Pay a round from the phone and it appears on the kitchen screen within a few
 seconds. "Listo" clears it.
+
+**Paid or not, in a word.** Each ticket says *sin pagar*, *pagado · por llevar*
+or *pérdida asumida*, computed on every poll by `round_payment_state()` from the
+ledger: an open-tab round arrives *sin pagar* and turns paid by itself when the
+table pays. Tickets still carry no amount. The top bar shows **Hoy $X**, the money
+received today (Bogotá calendar day, `staff_takings_today()`), with the split
+Wompi / cash / card terminal, tips, and refunds completed today one tap away.
 
 **Tickets are stored, not held in memory** (`kitchen_tickets`). A KDS that
 restarted with an empty screen while every dispatch said `delivered` would be

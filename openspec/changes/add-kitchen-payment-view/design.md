@@ -41,7 +41,7 @@ the ticket still carries no amount.
 cover only rounds in collection and open tables, and a second definition of "paid" would drift.
 
 **D2. Takings are one SQL function, read with the rest of the screen's state.**
-`staff_takings_today() → {day, total, wompi, cash, card_terminal, tips, refunded}`, all `bigint`.
+`staff_takings(day) → {day, from, to, total, wompi, cash, card_terminal, tips, refunded}`, money as `bigint`; `staff_takings_today()` passes it today's date in Bogotá. Taking the day as an argument is what lets a test check the midnight boundary without waiting for one.
 - Day window: `start = date_trunc('day', now() at time zone 'America/Bogota') at time zone
   'America/Bogota'`, end = start + 1 day. Rows are filtered by range, so an index on `created_at`
   could serve it later.

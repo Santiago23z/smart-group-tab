@@ -172,9 +172,10 @@ test('the worker feeds the kitchen screen', async (t) => {
 })
 
 // ---------------------------------------------------------------------------
-test('the kitchen screen is for staff, and carries no money', async (t) => {
+test('the kitchen screen is for staff, and its tickets carry no money', async (t) => {
   const kds = await startKds()
-  t.after(() => kds.close())
+  const db = await pool.connect()
+  t.after(async () => { db.release(); await kds.close() })
 
   await t.test('no staff token, no data', async () => {
     for (const [path, method] of [
@@ -215,6 +216,31 @@ test('the kitchen screen is for staff, and carries no money', async (t) => {
     const text = JSON.stringify(state.tickets)
     assert.ok(text.includes(fx.roundId))
     assert.doesNotMatch(text, /amount|owed|total|balance|tip|psp/i)
+  })
+
+  await t.test('a ticket says in a word whether its round is paid; the state carries today\'s takings', async () => {
+    // Forced to the kitchen without a payment: the shape an open tab arrives in.
+    const unpaid = await releasedRound()
+    await drain(db, { urls: kds.urls, token: DISPATCH })
+    let state = await (await kds.staff('/kds/api/state')).json()
+    assert.equal(state.tickets.find((x) => x.round_id === unpaid.roundId).payment, 'unpaid')
+
+    // Collected before the kitchen: paid when it gets there, and counted today.
+    const before = state.takings
+    const fx = await createFixture(pool, { participants: 1, items: [{ price: 9_000 }] })
+    const r = await reserve(pool, { roundId: fx.roundId, participantId: fx.participantIds[0], mode: 'remaining', key: `kpv-${Math.random()}` })
+    await confirmWebhook(pool, { eventId: `kpv-${Math.random()}`, reference: r.psp_reference, amount: r.order_amount })
+    await pool.query(`update dispatches set next_attempt_at = now() + interval '1 hour'
+                       where status = 'pending' and round_id <> $1`, [fx.roundId])
+    await drain(db, { urls: kds.urls, token: DISPATCH })
+
+    state = await (await kds.staff('/kds/api/state')).json()
+    const paid = state.tickets.find((x) => x.round_id === fx.roundId)
+    assert.equal(paid.payment, 'paid')
+    assert.doesNotMatch(JSON.stringify(state.tickets), /amount|owed|total|balance|tip|psp/i)
+    assert.equal(Number(state.takings.total) - Number(before.total), 9_000)
+    assert.equal(Number(state.takings.wompi) - Number(before.wompi), 9_000)
+    for (const k of ['day', 'cash', 'card_terminal', 'tips', 'refunded']) assert.ok(k in state.takings, k)
   })
 
   await t.test('the static screen is served without a token and holds no data', async () => {
