@@ -36,10 +36,28 @@ export const closePool = () => pool.end()
  * `page` is a fresh browser context, so localStorage is empty — which is what a
  * second phone scanning the same QR actually is.
  */
-export async function joinAs(page, qrToken, nickname) {
-  await page.goto(`/t/${qrToken}`)
+/**
+ * Fill the join screen once it has asked about the table. A free table asks how
+ * it pays: `mode` if given, else the venue's configured mode — what every table
+ * got before diners chose (hybrid read as paying each round), so older tests keep their meaning.
+ */
+export async function enterTable(page, qrToken, nickname, mode = null) {
+  await expect(page.locator('#join-form[data-ready]')).toHaveCount(1)
+  if (await page.locator('#pay-choice').isVisible()) {
+    // A hybrid venue (the seed's) is not a diner's choice; with no balance it
+    // collected every round, which is what paying each round does.
+    const [{ m: venueMode }] = await sql(
+      `select v.default_service_mode::text as m from tables t join venues v on v.id = t.venue_id where t.qr_token = $1`, [qrToken])
+    const m = mode ?? (venueMode === 'open_tab' ? 'open_tab' : 'pay_before_order')
+    await page.locator(`#pay-choice button[data-mode="${m}"]`).click()
+  }
   await page.fill('#nickname', nickname)
   await page.click('#join-form button[type=submit]')
+}
+
+export async function joinAs(page, qrToken, nickname, mode = null) {
+  await page.goto(`/t/${qrToken}`)
+  await enterTable(page, qrToken, nickname, mode)
   await expect(page.locator('#table')).toBeVisible()
   await expect(page.locator('button[data-add]').first()).toBeVisible()
 }

@@ -19,6 +19,15 @@
     <h1>¿Cómo te decimos?</h1>
     <p class="muted">Sin cuenta, sin descargar nada. Solo un apodo para que la mesa sepa qué pediste.</p>
     <form id="join-form">
+      <!-- A free table: whoever opens it chooses how it pays. An open one just says. -->
+      <div class="pay-choice" id="pay-choice" hidden>
+        <p class="eyebrow">¿Cómo van a pagar?</p>
+        <button type="button" class="choice" data-mode="pay_before_order" aria-pressed="false">
+          <strong>Pagar cada ronda</strong><span>La cocina recibe cada pedido cuando está pagado.</span></button>
+        <button type="button" class="choice" data-mode="open_tab" aria-pressed="false">
+          <strong>Abrir cuenta y pagar al final</strong><span>Piden lo que quieran y pagan al pedir la cuenta.</span></button>
+      </div>
+      <p class="table-line" id="join-mode" hidden></p>
       <input id="nickname" type="text" placeholder="Tu apodo" maxlength="40" autocomplete="off" required>
       <button type="submit">Entrar a la mesa</button>
     </form>
@@ -32,6 +41,7 @@
     <div>
       <p class="eyebrow" id="table-label">…</p>
       <h2 id="round-label">Ronda 1</h2>
+      <p class="table-line" id="table-mode"></p>
     </div>
     <div class="who" id="who"></div>
   </header>
@@ -49,6 +59,7 @@
     <div id="cart-list"></div>
     <div id="owed" class="owed"></div>
     <div id="round-actions"></div>
+    <div id="mode-switch"></div>
     <div id="bill"></div>
     <div id="other-rounds"></div>
   </div>

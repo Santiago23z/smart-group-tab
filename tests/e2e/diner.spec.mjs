@@ -6,9 +6,16 @@
 // and every one of those 88 stayed green.
 
 import { test, expect } from '@playwright/test'
-import { freshTable, freshOpenTabTable, joinAs, order, openCart, openMenu, settled, sql, closePool } from './helpers.mjs'
+import { freshTable, freshOpenTabTable, joinAs, enterTable, order, openCart, openMenu, settled, sql, closePool } from './helpers.mjs'
 
 test.afterAll(closePool)
+
+// Phones a test opened with browser.newContext() are its own to close. Left
+// open, every one keeps polling and animating in the one shared WebKit; a
+// dozen of them by the end of the file froze the whole browser mid-tap.
+test.afterEach(async ({ browser, page }) => {
+  for (const ctx of browser.contexts()) if (ctx !== page.context()) await ctx.close()
+})
 
 // ---------------------------------------------------------------------------
 // What you see before you have done anything
@@ -42,8 +49,7 @@ test('a nickname already taken at the table is refused, not silently renamed', a
 
   const p2 = await second.newPage()
   await p2.goto(`/t/${qr}`)
-  await p2.fill('#nickname', 'Santi')
-  await p2.click('#join-form button[type=submit]')
+  await enterTable(p2, qr, 'Santi')
 
   await expect(p2.locator('#join-error')).toBeVisible()
   await expect(p2.locator('#join-error')).toContainText('apodo')
@@ -373,8 +379,7 @@ test('a table that no longer exists sends you back to the QR, not to a dead scre
 
   // Joining again works. A new nickname, because the real Ana is still seated
   // in the session this phone had merely lost track of.
-  await page.fill('#nickname', 'Ana de nuevo')
-  await page.click('#join-form button[type=submit]')
+  await enterTable(page, qr, 'Ana de nuevo')
   await expect(page.locator('#table')).toBeVisible()
   await expect(page.locator('button[data-add]').first()).toBeVisible()
 })
@@ -575,4 +580,82 @@ test('when a second diner joins, both phones offer to share and to split again',
     await expect(phone.locator('#round-actions button[data-close="as_ordered"]')).toContainText('cada quien lo suyo')
     await expect(phone.locator('#round-actions button[data-close="equal"]')).toBeVisible()
   }
+})
+
+// ---------------------------------------------------------------------------
+// The diner chooses how the table pays
+// ---------------------------------------------------------------------------
+test('alone, choosing "Abrir cuenta": the food goes to the kitchen unpaid, and she pays at the end', async ({ page }) => {
+  const qr = await freshTable('elige-cuenta')
+  await page.goto(`/t/${qr}`)
+  await expect(page.locator('#pay-choice')).toBeVisible()
+  // "Entrar" waits for a choice.
+  await page.fill('#nickname', 'Ana')
+  await expect(page.locator('#join-form button[type=submit]')).toBeDisabled()
+  await page.locator('#pay-choice button[data-mode="open_tab"]').click()
+  await page.click('#join-form button[type=submit]')
+  await expect(page.locator('#table-mode')).toHaveText('Cuenta abierta · pagan al final')
+
+  await order(page, 'Hamburguesa de la casa')
+  await openCart(page)
+  await page.locator('#round-actions button').tap()
+  await expect(page.locator('#round-actions')).toContainText('Pedido en cocina')
+  await expect(page.locator('#bar')).toBeHidden()
+
+  await page.locator('#ask-bill').tap()
+  await page.locator('#bar-action').tap()
+  await page.locator('#pay-confirm').tap()
+  await expect(page.locator('#bill')).toContainText('Mesa cerrada', { timeout: 8000 })
+})
+
+test('paying each round, then switching: round 2 goes unpaid, and the bill holds round 2 only', async ({ page }) => {
+  const qr = await freshTable('cambia')
+  await joinAs(page, qr, 'Ana', 'pay_before_order')
+  await expect(page.locator('#table-mode')).toHaveText('Pagan cada ronda')
+
+  // Round 1, paid before the kitchen. No switch offered while it is in collection.
+  await order(page, 'Hamburguesa de la casa')
+  await openCart(page)
+  await page.locator('#round-actions button').tap()
+  await expect(page.locator('#bar')).toBeVisible()
+  await expect(page.locator('#switch-tab')).toHaveCount(0)
+  await page.locator('#bar-action').tap()
+  await page.locator('#pay-confirm').tap()
+  await expect(page.locator('#round-actions')).toContainText('Pedido en cocina', { timeout: 8000 })
+
+  // Switch, with its confirmation.
+  await page.locator('#switch-tab').tap()
+  await expect(page.locator('#mode-switch')).toContainText('sin pagar')
+  await page.locator('#switch-yes').tap()
+  await expect(page.locator('#table-mode')).toHaveText('Cuenta abierta · pagan al final')
+  await expect(page.locator('#switch-tab')).toHaveCount(0)
+
+  // Round 2 goes straight to the kitchen.
+  await openMenu(page)
+  await order(page, 'Picada para compartir')
+  await openCart(page)
+  await expect(page.locator('#round-actions button')).toHaveText('Enviar a la cocina')
+  await page.locator('#round-actions button').tap()
+  await expect(page.locator('#toast')).toContainText('Pedido enviado a cocina')
+
+  await page.locator('#ask-bill').tap()
+  const [{ session_id: sessionId }] = await sql(
+    `select s.id as session_id from sessions s join tables t on t.id = s.table_id where t.qr_token = $1`, [qr])
+  const [{ r: tab }] = await sql(`select tab_summary($1) as r`, [sessionId])
+  const [{ total: round2 }] = await sql(
+    `select round_total(r.id) as total from rounds r where r.session_id = $1 and r.round_number = 2`, [sessionId])
+  expect(Number(tab.total)).toBe(Number(round2))
+})
+
+test('a diner arriving at an open table is told how it pays, and is not asked', async ({ browser }) => {
+  const qr = await freshTable('ya-abierta')
+  await joinAs(await (await browser.newContext()).newPage(), qr, 'Ana', 'open_tab')
+  const b = await (await browser.newContext()).newPage()
+  await b.goto(`/t/${qr}`)
+  await expect(b.locator('#join-form[data-ready]')).toHaveCount(1)
+  await expect(b.locator('#pay-choice')).toBeHidden()
+  await expect(b.locator('#join-mode')).toHaveText('Esta mesa tiene cuenta abierta: pagan al final.')
+  await b.fill('#nickname', 'Beto')
+  await b.click('#join-form button[type=submit]')
+  await expect(b.locator('#table-mode')).toHaveText('Cuenta abierta · pagan al final')
 })

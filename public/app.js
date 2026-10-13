@@ -86,6 +86,10 @@ const REASONS = {
   draft_not_empty: 'Primero enviá o quitá lo que está en el carrito.',
   bill_not_requested: 'Primero pedí la cuenta.',
   nothing_to_pay: 'No queda nada por pagar.',
+  invalid_mode: 'Esa forma de pagar no se puede elegir.',
+  round_in_collection: 'Hay una ronda en cobro: primero hay que pagarla.',
+  bill_requested: 'Ya pidieron la cuenta.',
+  not_paying_each_round: 'Esta mesa ya paga al final.',
 }
 const METHOD = { cash: 'efectivo', card_terminal: 'datáfono' }
 const explain = (r) => REASONS[r?.reason] ?? r?.reason ?? 'No se pudo.'
@@ -93,18 +97,49 @@ const explain = (r) => REASONS[r?.reason] ?? r?.reason ?? 'No se pudo.'
 // ---------------------------------------------------------------------------
 // Join
 // ---------------------------------------------------------------------------
+// How a table pays: chosen by whoever opens it, then the same for everyone.
+const MODE_LINE = {
+  pay_before_order: 'Esta mesa paga cada ronda.',
+  open_tab: 'Esta mesa tiene cuenta abierta: pagan al final.',
+  hybrid: 'Esta mesa paga la primera ronda antes y luego con su saldo.',
+}
+let chosenMode = null
+
+/** Free table: ask how it pays. Open table: say how it pays. */
+async function lookUpTable() {
+  delete $('join-form').dataset.ready
+  try {
+    const t = await api(`/api/table?qr=${encodeURIComponent(qrToken)}`)
+    if (t.venue) $('join-venue').textContent = t.venue
+    $('pay-choice').hidden = t.status !== 'free'
+    $('join-mode').hidden = t.status !== 'open'
+    $('join-mode').textContent = MODE_LINE[t.service_mode] ?? ''
+  } catch {
+    // The join itself still answers; the choice just is not offered.
+  }
+  updateJoinButton()
+  $('join-form').dataset.ready = '1'
+}
+
+function updateJoinButton() {
+  $('join-form').querySelector('button[type=submit]').disabled = !$('pay-choice').hidden && !chosenMode
+}
+
 $('join-form').addEventListener('submit', async (e) => {
   e.preventDefault()
   const nickname = $('nickname').value.trim()
   if (!nickname) return
 
   try {
-    const result = await api('/api/join', { qr_token: qrToken, nickname })
+    const mode = $('pay-choice').hidden ? null : chosenMode
+    const result = await api('/api/join', { qr_token: qrToken, nickname, mode })
     if (result.status !== 'joined') {
       $('join-error').textContent = explain(result)
       $('join-error').hidden = false
       return
     }
+    // Someone opened the table a moment earlier: their choice stands.
+    if (mode && result.chose === false) toast(MODE_LINE[result.service_mode] ?? '')
     me = {
       sessionId: result.session_id,
       participantId: result.participant_id,
@@ -156,6 +191,7 @@ function render() {
 
   const round = currentRound()
   setText($('round-label'), round ? `Ronda ${round.number}` : 'Mesa')
+  setText($('table-mode'), TABLE_MODE[state.session.service_mode] ?? '')
 
   renderMenu()
   renderCart(round)
@@ -246,6 +282,7 @@ function renderCart(round) {
   renderRoundActions(round)
   renderBill()
   renderOtherRounds()
+  renderModeSwitch()
 }
 
 // ---------------------------------------------------------------------------
@@ -363,6 +400,44 @@ function renderRoundActions(round) {
 
   paint(el, `<div class="banner"><strong>Necesita al mesero</strong>
     <span class="muted">Algo no cuadró y alguien del local tiene que resolverlo.</span></div>`)
+}
+
+// ---------------------------------------------------------------------------
+// Paying each round → a tab. One way, and only while nothing is in collection;
+// the server decides, this only offers it.
+// ---------------------------------------------------------------------------
+const TABLE_MODE = {
+  pay_before_order: 'Pagan cada ronda',
+  open_tab: 'Cuenta abierta · pagan al final',
+  hybrid: 'Primera ronda antes, luego con saldo',
+}
+let confirmingSwitch = false
+
+function renderModeSwitch() {
+  const allowed = state.session.service_mode === 'pay_before_order' &&
+    state.session.status !== 'closed' && !billRequested() &&
+    !state.rounds.some((r) => ['locked_for_payment', 'requires_staff_attention'].includes(r.status))
+  if (!allowed) confirmingSwitch = false
+  paint($('mode-switch'), !allowed ? '' : confirmingSwitch ? `
+    <div class="switch-confirm">
+      <p>Desde ahora la comida llega sin pagar y pagan todo al pedir la cuenta. Aplica a toda la mesa.</p>
+      <div class="sheet-actions">
+        <button class="ghost" id="switch-no">No</button>
+        <button id="switch-yes">Sí, al final</button>
+      </div>
+    </div>` : `
+    <button class="text" id="switch-tab">Pasar a pagar al final</button>`)
+}
+
+async function switchToTab() {
+  const r = await api('/api/switch-to-tab', { session_id: me.sessionId, participant_id: me.participantId })
+  confirmingSwitch = false
+  if (r.status !== 'switched') {
+    toast(explain(r), true)
+    return refresh()
+  }
+  await refresh()
+  toast('Listo: desde ahora pagan al final')
 }
 
 function renderOtherRounds() {
@@ -498,6 +573,17 @@ document.addEventListener('click', async (e) => {
       toast(r.closed ? 'Mesa cerrada' : 'Cuenta pedida')
       await refresh()
     }
+    if (btn.dataset.mode && btn.closest('#pay-choice')) {
+      chosenMode = btn.dataset.mode
+      for (const b of document.querySelectorAll('#pay-choice .choice')) {
+        b.classList.toggle('selected', b === btn)
+        b.setAttribute('aria-pressed', String(b === btn))
+      }
+      updateJoinButton()
+    }
+    if (btn.id === 'switch-tab') { confirmingSwitch = true; renderModeSwitch() }
+    if (btn.id === 'switch-no') { confirmingSwitch = false; renderModeSwitch() }
+    if (btn.id === 'switch-yes') await switchToTab()
     if (btn.id === 'start-over') forget('Escaneaste la mesa de nuevo. Elegí tu apodo.')
 
     if (btn.id === 'bar-action') {
@@ -717,6 +803,7 @@ function forget(message) {
   $('join-error').textContent = message
   $('join-error').hidden = false
   show('join')
+  lookUpTable()
 }
 
 async function refresh() {
@@ -786,6 +873,7 @@ if (me) {
   api(`/api/state?session_id=00000000-0000-0000-0000-000000000000`).catch(() => {})
   $('join-venue').textContent = 'Escaneaste la mesa'
   show('join')
+  lookUpTable()
 }
 
 checkReturnFromWompi()

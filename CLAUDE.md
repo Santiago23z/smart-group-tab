@@ -24,7 +24,7 @@
 - **Refunds:** Refunds are modeled in the database (table `refunds`) to keep the ledger balanced, but the physical money return is executed **manually** by staff (no automated Wompi API refunds). Two independent axes: `kind` (`reversed`/`refunded`) says *how* the money came back; `status` (`pending`/`completed`/`rejected`) says *how far along* it is. They are not collapsed — a reversal the bank is still processing is `reversed` and `pending` at once, and the UI must not claim the money is back while it is not.
 
 ## 5. Operating Modes
-- The mode (`pay_before_order`, `open_tab`, `hybrid`) is snapshotted to the session upon creation.
+- The mode (`pay_before_order`, `open_tab`, `hybrid`) is snapshotted to the session upon creation. Since 2026-10-12 the first diner chooses it (`pay_before_order` or `open_tab`; the venue's mode is only the fallback when no choice is sent), and a `pay_before_order` session may switch once to `open_tab` while no round is in collection. Diners cannot choose `hybrid`.
 - In `hybrid` mode, round 1 demands 100% upfront payment. Subsequent rounds are financed against a `prepaid_balance` pool at the session level.
 
 ## 6. MVP Scope & Deliverables

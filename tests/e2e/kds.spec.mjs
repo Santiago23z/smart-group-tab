@@ -5,7 +5,7 @@
 
 import { test, expect } from '@playwright/test'
 import pg from 'pg'
-import { freshTable, freshOpenTabTable, sql, closePool } from './helpers.mjs'
+import { freshTable, freshOpenTabTable, enterTable, sql, closePool } from './helpers.mjs'
 import { drain } from '../../src/worker/run.mjs'
 import { testDatabaseUrl } from '../../scripts/test-database.mjs'
 
@@ -20,6 +20,13 @@ const pool = new pg.Pool({
 })
 
 test.afterAll(async () => { await pool.end(); await closePool() })
+
+// Phones a test opened with browser.newContext() are its own to close. Left
+// open, every one keeps polling and animating in the one shared WebKit; a
+// dozen of them by the end of the file froze the whole browser mid-tap.
+test.afterEach(async ({ browser, page }) => {
+  for (const ctx of browser.contexts()) if (ctx !== page.context()) await ctx.close()
+})
 
 /** A table with a round of two dishes in collection, nobody holding anything yet. */
 async function openRound(name) {
@@ -387,8 +394,7 @@ test('a dish marked sold out disappears from the diner\'s menu', async ({ page, 
   const { venueId, qr } = await venueWithMenu('agotado')
   const diner = await (await browser.newContext()).newPage()
   await diner.goto(`http://127.0.0.1:${process.env.E2E_PORT ?? 8791}/t/${qr}`)
-  await diner.fill('#nickname', 'Ana')
-  await diner.click('#join-form button[type=submit]')
+  await enterTable(diner, qr, 'Ana')
   await expect(diner.locator('#menu-list')).toContainText('Ceviche E2E')
 
   await openMenuPanel(page, venueId)
@@ -480,8 +486,7 @@ test('a diner asks to pay in cash, the kitchen sees it, collects it, and both sc
   const qr = await freshTable('kds-cash-request')
   const diner = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage()
   await diner.goto(`http://127.0.0.1:${process.env.E2E_PORT ?? 8791}/t/${qr}`)
-  await diner.fill('#nickname', 'Lucía')
-  await diner.click('#join-form button[type=submit]')
+  await enterTable(diner, qr, 'Lucía')
   await diner.locator('#menu-list .row', { hasText: 'Hamburguesa de la casa' }).first().locator('button[data-add]').click()
   await diner.locator('.tabs button', { hasText: 'Cuenta' }).click()
   await diner.locator('button[data-close="as_ordered"]').click()

@@ -14,8 +14,12 @@ Como la plata que se paga por Wompi no se devuelve sola, el sistema está hecho 
 
 ## Los tres modos de cobro
 
-Cada restaurante elige uno. Una mesa conserva el modo con que se abrió aunque el restaurante lo
-cambie después.
+**Los elige el cliente.** Quien abre la mesa (la primera persona que escanea el QR) escoge entre
+**Pagar cada ronda** y **Abrir cuenta y pagar al final**; los que llegan después ven cómo paga la
+mesa y se unen a esa forma. Una mesa que paga cada ronda puede **pasarse a pagar al final** en
+cualquier momento en que no haya una ronda en cobro (botón "Pasar a pagar al final" en la Cuenta);
+lo ya pagado no vuelve a cobrarse. Al revés no se puede. Riesgo aceptado: cualquier mesa puede abrir
+cuenta y, por lo tanto, irse sin pagar; para eso está **Asumir pérdida** en la cocina.
 
 | Modo | Cómo funciona |
 |---|---|
@@ -23,9 +27,13 @@ cambie después.
 | **Cuenta abierta** | Las rondas van a la cocina sin cobrar; se paga todo al final, al pedir la cuenta. |
 | **Híbrido** | La primera ronda se paga antes; las siguientes se descuentan del saldo a favor de la mesa, y si no alcanza, se cobran. |
 
+El híbrido **no lo puede elegir el cliente**: hoy ninguna mesa puede dejar saldo a propósito, así
+que se comportaría como "pagar cada ronda". Completarlo, con un abono, es un cambio aparte.
+
 ## Una noche en la mesa, de punta a punta
 
-1. **Entrar.** El comensal escanea el QR de la mesa y escribe un apodo.
+1. **Entrar.** El comensal escanea el QR de la mesa y escribe un apodo. Si la mesa está libre,
+   elige cómo van a pagar; si ya está abierta, la pantalla le dice cómo paga.
 2. **Pedir.** Todos agregan platos al mismo carrito, desde su celular. Un plato se puede
    compartir entre varias personas; cada una ve cuánto le toca.
 3. **Cerrar la ronda.** El carrito se congela. Lo que se pida después va a una ronda nueva. Quien
@@ -234,6 +242,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 7 oct | Pulido visual de las dos pantallas: letra con serifa en títulos y animaciones suaves |
 | 12 oct | La cocina ve si cada pedido está pagado, y cuánta plata entró hoy |
 | 12 oct | Quien está solo en la mesa ve un solo botón, sin opciones de dividir |
+| 12 oct | El cliente elige cómo paga la mesa (cada ronda o al final) y puede pasarse a pagar al final |
 
 ## Lo que falta
 

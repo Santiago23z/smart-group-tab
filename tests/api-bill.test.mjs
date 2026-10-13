@@ -109,3 +109,36 @@ test('the diner menu carries each dish\'s description', async () => {
     assert.equal(menu.find((p) => p.id === agua).description, null)
   } finally { await api.stop() }
 })
+
+test('the join screen asks the table, the opener chooses, and a table paying each round switches to a tab', async () => {
+  const api = await startApi()
+  try {
+    const venue = await createVenue(pool, { products: [{ price: 15_000 }] })
+    assert.deepEqual(await api.get(`/api/table?qr=${venue.qrToken}`), { status: 'free', venue: 'fixture', service_mode: null })
+    assert.deepEqual(await api.get('/api/table?qr=nope'), { status: 'unknown' })
+
+    const ana = await api.post('/api/join', { qr_token: venue.qrToken, nickname: 'Ana', mode: 'pay_before_order' })
+    assert.deepEqual([ana.status, ana.service_mode, ana.chose], ['joined', 'pay_before_order', true])
+    const beto = await api.post('/api/join', { qr_token: venue.qrToken, nickname: 'Beto', mode: 'open_tab' })
+    assert.deepEqual([beto.service_mode, beto.chose], ['pay_before_order', false])
+    assert.equal((await api.get(`/api/table?qr=${venue.qrToken}`)).service_mode, 'pay_before_order')
+
+    // Refused while a round is in collection; allowed once nothing is.
+    await addItem(pool, { sessionId: ana.session_id, participantId: ana.participant_id, productId: venue.menu[0].id })
+    await closeRound(pool, { sessionId: ana.session_id })
+    const refused = await api.post('/api/switch-to-tab', { session_id: ana.session_id, participant_id: ana.participant_id })
+    assert.deepEqual([refused.status, refused.reason], ['rejected', 'round_in_collection'])
+
+    const fresh = await createVenue(pool)
+    const solo = await api.post('/api/join', { qr_token: fresh.qrToken, nickname: 'Solo', mode: 'pay_before_order' })
+    const switched = await api.post('/api/switch-to-tab', { session_id: solo.session_id, participant_id: solo.participant_id })
+    assert.equal(switched.status, 'switched')
+    const state = await api.get(`/api/state?session_id=${solo.session_id}&participant_id=${solo.participant_id}`)
+    assert.equal(state.session.service_mode, 'open_tab')
+
+    const bad = await api.post('/api/join', { qr_token: fresh.qrToken, nickname: 'X', mode: 'hybrid' })
+    assert.deepEqual([bad.status, bad.reason], ['rejected', 'invalid_mode'])
+  } finally {
+    await api.stop()
+  }
+})

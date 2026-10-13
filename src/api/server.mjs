@@ -178,7 +178,8 @@ async function tableState(sessionId, participantId) {
 const ROUTES = {
   'POST /api/join': async (body) =>
     asParticipant(null, (c) =>
-      rpc(c, `select open_or_join_session($1,$2) as r`, [body.qr_token, body.nickname])
+      // mode: how the table pays, chosen by whoever opens it; ignored at an open table.
+      rpc(c, `select open_or_join_session($1,$2,$3) as r`, [body.qr_token, body.nickname, body.mode ?? null])
     ),
 
   'POST /api/cart/add': async (body) =>
@@ -244,6 +245,12 @@ const ROUTES = {
 
   // Asks the waiter to come and collect, in cash or on the card terminal.
   // Moves no money and holds nothing.
+  // A table paying each round switches to a tab: rounds go to the kitchen unpaid from now on.
+  'POST /api/switch-to-tab': async (body) =>
+    asParticipant(body.participant_id, (c) =>
+      rpc(c, `select switch_to_tab($1,$2) as r`, [body.session_id, body.participant_id])
+    ),
+
   'POST /api/cash-request': async (body) =>
     asParticipant(body.participant_id, (c) =>
       rpc(c, `select request_cash_payment($1,$2,$3,$4) as r`, [
@@ -344,6 +351,12 @@ const server = createServer(async (req, res) => {
   }
 
   try {
+    // Before joining: is the table free, and how does an open one pay. Nothing private.
+    if (url.pathname === '/api/table' && req.method === 'GET') {
+      const { rows } = await pool.query(`select table_status($1) as r`, [url.searchParams.get('qr') ?? ''])
+      return reply(200, rows[0].r)
+    }
+
     if (url.pathname === '/api/state') {
       const state = await tableState(url.searchParams.get('session_id'), url.searchParams.get('participant_id'))
       return state ? reply(200, state) : reply(404, { error: 'unknown_session' })
