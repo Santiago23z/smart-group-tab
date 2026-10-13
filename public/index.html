@@ -43,7 +43,8 @@
       <h2 id="round-label">Ronda 1</h2>
       <p class="table-line" id="table-mode"></p>
     </div>
-    <div class="who" id="who"></div>
+    <!-- Who is at the table: a few faces and a count; tap for everyone. -->
+    <button class="who" id="who" aria-label="Ver quién está en la mesa"></button>
   </header>
 
   <nav class="tabs">
@@ -81,6 +82,17 @@
     <button id="order-action">Ver pedido</button>
   </footer>
 </section>
+
+<!-- En la mesa: everyone at the table, however many. -->
+<div id="people" class="sheet" hidden>
+  <div class="sheet-body">
+    <h3 id="people-title">En la mesa</h3>
+    <div id="people-list"></div>
+    <div class="sheet-actions">
+      <button class="ghost" id="people-close">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 <!-- Compartir ítem ------------------------------------------------------ -->
 <div id="sheet" class="sheet" hidden>

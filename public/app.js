@@ -192,13 +192,37 @@ const currentRound = () =>
  */
 const payingRound = () => state?.rounds.find((r) => r.status === 'locked_for_payment') ?? currentRound()
 
+// ---------------------------------------------------------------------------
+// Who is at the table. The header holds at most three faces and a "+N"; a
+// table of twelve would otherwise push the header apart. The full list is a
+// tap away, in a sheet.
+// ---------------------------------------------------------------------------
+const FACES = 3
+const initial = (name) => escape([...name.trim()][0]?.toUpperCase() ?? '?')
+
+function renderPeople() {
+  // Me first: it is the face that matters most on my phone.
+  const people = [...state.participants].sort((a, b) =>
+    (b.id === me.participantId) - (a.id === me.participantId))
+  const face = (p) => `<span class="face${p.id === me.participantId ? ' me' : ''}">${initial(p.nickname)}</span>`
+  const extra = people.length - FACES
+  paint($('who'), people.slice(0, FACES).map(face).join('') +
+    (extra > 0 ? `<span class="face more">+${extra}</span>` : ''))
+  $('who').setAttribute('aria-label', `En la mesa: ${people.map((p) => p.nickname).join(', ')}`)
+
+  $('people-title').textContent = `En la mesa (${people.length})`
+  paint($('people-list'), people.map((p) => `
+    <div class="person-row">
+      ${face(p)}
+      <span>${escape(p.nickname)}${p.id === me.participantId ? ' <span class="muted">(vos)</span>' : ''}</span>
+    </div>`).join(''))
+}
+
 function render() {
   if (!state) return
 
   $('table-label').textContent = `${state.venue.name} · ${state.table.label}`
-  paint($('who'), state.participants
-    .map((p) => `<span class="${p.id === me.participantId ? 'me' : ''}">${escape(p.nickname)}</span>`)
-    .join(''))
+  renderPeople()
 
   const round = currentRound()
   setText($('round-label'), round ? `Ronda ${round.number}` : 'Mesa')
@@ -721,6 +745,8 @@ document.addEventListener('click', async (e) => {
       else onBarAction()
     }
     if (btn.dataset.cash) await askCashPayment(btn.dataset.cash)
+    if (btn.id === 'who') $('people').hidden = false
+    if (btn.id === 'people-close') $('people').hidden = true
     if (btn.id === 'sheet-cancel') $('sheet').hidden = true
     if (btn.id === 'sheet-save') await saveSharing()
     if (btn.id === 'pay-cancel') $('pay').hidden = true

@@ -109,9 +109,14 @@ test('two phones at one table share one cart and see each other', async ({ brows
   await joinAs(a, qr, 'Santi')
   await joinAs(b, qr, 'Cachetona')
 
-  // Each phone is told who else is at the table.
-  await expect(a.locator('#who')).toContainText('Cachetona')
-  await expect(b.locator('#who')).toContainText('Santi')
+  // Each phone is told who else is at the table: two faces up top, the names a tap away.
+  await expect(a.locator('#who .face')).toHaveCount(2, { timeout: 8000 })
+  await a.locator('#who').tap()
+  await expect(a.locator('#people-list')).toContainText('Cachetona')
+  await a.locator('#people-close').tap()
+  await b.locator('#who').tap()
+  await expect(b.locator('#people-list')).toContainText('Santi')
+  await b.locator('#people-close').tap()
 
   // What A orders, B sees — without B doing anything.
   await order(a, 'Tabla de quesos')
@@ -864,4 +869,24 @@ test('the menu marks what the table is ordering, and the stepper adds and remove
   await openCart(beto)
   await beto.locator('button[data-close="as_ordered"]').tap()
   await expect(rowOf(ana).locator('.in-order')).toBeHidden({ timeout: 8000 })
+})
+
+test('a table of twelve: three faces and "+9" up top, everyone in the list', async ({ page }) => {
+  const qr = await freshTable('doce')
+  for (let i = 1; i <= 11; i++) await sql(`select open_or_join_session($1, $2, null)`, [qr, `Amigo ${i}`])
+  await joinAs(page, qr, 'Ana')
+  await expect(page.locator('#who .face')).toHaveCount(4)
+  await expect(page.locator('#who .face').first()).toHaveText('A')
+  await expect(page.locator('#who .face').first()).toHaveClass(/me/)
+  await expect(page.locator('#who .face.more')).toHaveText('+9')
+  // The header still fits on one phone width: the faces never wrap.
+  const box = await page.locator('#who').boundingBox()
+  expect(box.height).toBeLessThan(48)
+
+  await page.locator('#who').tap()
+  await expect(page.locator('#people-title')).toHaveText('En la mesa (12)')
+  await expect(page.locator('#people-list .person-row')).toHaveCount(12)
+  await expect(page.locator('#people-list .person-row').first()).toContainText('Ana (vos)')
+  await page.locator('#people-close').tap()
+  await expect(page.locator('#people')).toBeHidden()
 })
