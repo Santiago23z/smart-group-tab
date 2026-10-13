@@ -890,3 +890,68 @@ test('a table of twelve: three faces and "+9" up top, everyone in the list', asy
   await page.locator('#people-close').tap()
   await expect(page.locator('#people')).toBeHidden()
 })
+
+test('a sheet closes when dragged down or tapped outside, and snaps back from a nudge', async ({ page }) => {
+  const qr = await freshTable('hoja')
+  await joinAs(page, qr, 'Ana')
+  const sheet = page.locator('#people')
+  const title = page.locator('#people-title')
+  const drag = async (dy) => {
+    // Measure only once the sheet has stopped moving, or the press lands on whatever slid under it.
+    await page.waitForFunction(() => document.querySelector('#people .sheet-body').getAnimations().every((a) => a.playState !== 'running'))
+    const box = await title.boundingBox()
+    const x = box.x + box.width / 2
+    const y = box.y + box.height / 2
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x, y + dy, { steps: 12 })
+    await page.mouse.up()
+  }
+
+  await page.locator('#who').tap()
+  await expect(sheet).toBeVisible()
+  await drag(16)
+  // Not "visible": a closing sheet stays visible for its exit animation. Closing
+  // sets [hidden] at once, so its absence is the real answer.
+  await expect(sheet).not.toHaveAttribute('hidden', '')
+  await expect(page.locator('#people .sheet-body')).not.toHaveAttribute('style', /translateY\([1-9]/)
+
+  await drag(220)
+  await expect(sheet).toBeHidden()
+
+  await page.locator('#who').tap()
+  await expect(sheet).toBeVisible()
+  await page.mouse.click(20, 20) // the dimmed page above the sheet
+  await expect(sheet).toBeHidden()
+})
+
+test('dragging down from the list closes the sheet; a list scrolled down scrolls instead', async ({ page }) => {
+  const qr = await freshTable('hoja-lista')
+  for (let i = 1; i <= 11; i++) await sql(`select open_or_join_session($1, $2, null)`, [qr, `Amigo ${i}`])
+  await joinAs(page, qr, 'Ana')
+  const sheet = page.locator('#people')
+  const list = page.locator('#people-list')
+  const dragFrom = async (locator, dy) => {
+    // Measure only once the sheet has stopped moving, or the press lands on whatever slid under it.
+    await page.waitForFunction(() => document.querySelector('#people .sheet-body').getAnimations().every((a) => a.playState !== 'running'))
+    const box = await locator.boundingBox()
+    const x = box.x + box.width / 2
+    const y = box.y + 10
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x, y + dy, { steps: 12 })
+    await page.mouse.up()
+  }
+
+  // Scrolled down: dragging on the list does not take the sheet away.
+  await page.locator('#who').tap()
+  await expect(sheet).toBeVisible()
+  await list.evaluate((el) => { el.scrollTop = 120 })
+  await dragFrom(list, 200)
+  await expect(sheet).not.toHaveAttribute('hidden', '')
+
+  // At the top: dragging down from a name closes it.
+  await list.evaluate((el) => { el.scrollTop = 0 })
+  await dragFrom(page.locator('#people-list .person-row').first(), 200)
+  await expect(sheet).toBeHidden()
+})

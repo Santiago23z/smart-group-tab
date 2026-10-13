@@ -950,6 +950,71 @@ async function confirmPayment() {
 }
 
 // ---------------------------------------------------------------------------
+// Sheets close the way the grabber promises: dragged down, or with a tap on
+// the dimmed page behind them. Every sheet's own "close" is just hiding it, so
+// these do exactly that. Lists that scroll keep scrolling; the drag starts
+// anywhere else on the sheet.
+// ---------------------------------------------------------------------------
+const CLOSE_DISTANCE = 90 // px
+const CLOSE_SPEED = 0.6 // px per ms: a quick flick closes even when short
+
+for (const sheet of document.querySelectorAll('.sheet')) {
+  const body = sheet.querySelector('.sheet-body')
+  let startY = null
+  let startedAt = 0
+  let dy = 0
+  let fromList = false
+
+  body.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, input, label, select, textarea')) return
+    // Like a native sheet: a list scrolled down scrolls back up first; at its
+    // top, pulling down moves the whole sheet.
+    const list = e.target.closest('.sheet-scroll')
+    if (list && list.scrollTop > 0) return
+    fromList = Boolean(list)
+    startY = e.clientY
+    startedAt = performance.now()
+    dy = 0
+  })
+  body.addEventListener('pointermove', (e) => {
+    if (startY === null) return
+    const moved = e.clientY - startY
+    // Pushing a list up is scrolling it, not dragging the sheet.
+    if (fromList && moved < 0 && dy === 0) {
+      startY = null
+      return
+    }
+    dy = Math.max(0, moved) // down only
+    if (dy > 0 && !body.classList.contains('dragging')) {
+      // Only once the finger really moves, so a tap on a row stays a tap.
+      body.classList.add('dragging')
+      try { body.setPointerCapture(e.pointerId) } catch {}
+    }
+    body.style.transform = `translateY(${dy}px)`
+  })
+  // While dragging, the page must not scroll or the browser would cancel the
+  // pointer. Done here rather than with touch-action, which would also stop
+  // the lists inside from scrolling (it is intersected with every ancestor's).
+  body.addEventListener('touchmove', (e) => {
+    if (startY !== null && dy > 0) e.preventDefault()
+  }, { passive: false })
+  const release = () => {
+    if (startY === null) return
+    const fast = dy / Math.max(1, performance.now() - startedAt) > CLOSE_SPEED
+    startY = null
+    body.classList.remove('dragging')
+    body.style.transform = '' // from where the finger left it: back up, or on down and out
+    if (dy > CLOSE_DISTANCE || (fast && dy > 24)) sheet.hidden = true
+  }
+  body.addEventListener('pointerup', release)
+  body.addEventListener('pointercancel', release)
+
+  sheet.addEventListener('click', (e) => {
+    if (e.target === sheet) sheet.hidden = true
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Polling, and reconciling whenever the phone comes back
 // ---------------------------------------------------------------------------
 /**

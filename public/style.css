@@ -518,3 +518,9 @@ button.choice:active { transform: scale(.985); }
   fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round;
 }
 .qty .count { min-width: 1.5rem; text-align: center; font-weight: 800; font-size: 1.05rem; }
+
+/* Sheets follow the finger down (app.js). No touch-action here: it would be
+   intersected into the lists inside and stop them scrolling on a phone. */
+.sheet-body.dragging { transition: none; }
+.sheet-scroll { overscroll-behavior: contain; }
+#sheet-people { max-height: 50dvh; overflow-y: auto; }
