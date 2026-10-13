@@ -360,7 +360,7 @@ footer {
   max-width: 33rem; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   padding: .7rem .7rem .7rem 1.3rem; border-radius: 999px;
-  background: rgba(36, 30, 26, .82); backdrop-filter: blur(22px) saturate(160%);
+  background: rgba(36, 30, 26, .95); backdrop-filter: blur(22px) saturate(160%);
   -webkit-backdrop-filter: blur(22px) saturate(160%);
   box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255, 240, 225, .07), 0 24px 50px -20px rgba(0, 0, 0, .95);
   animation: rise .5s var(--ease-out);
@@ -481,3 +481,6 @@ button.choice:active { transform: scale(.985); }
 /* In the pay sheet: keep ordering and pay it all at the end. */
 .pay-later { margin-top: .9rem; text-align: center; }
 .pay-later .switch-confirm { margin-top: .2rem; }
+
+/* Floating order bar: the same pill as the pay bar, which always has priority. */
+.order-bar #order-action { min-width: 9.5rem; }

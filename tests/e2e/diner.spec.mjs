@@ -750,3 +750,74 @@ test('the tick after adding sits dead centre in its button', async ({ page }) =>
   expect(Math.abs((b.x + b.width / 2) - (t.x + t.width / 2))).toBeLessThan(1)
   expect(Math.abs((b.y + b.height / 2) - (t.y + t.height / 2))).toBeLessThan(1)
 })
+
+// ---------------------------------------------------------------------------
+// The floating order bar on the menu
+// ---------------------------------------------------------------------------
+test('alone paying each round: one tap on the floating bar closes the round and opens the pay sheet', async ({ page }) => {
+  const qr = await freshTable('flota')
+  await joinAs(page, qr, 'Ana', 'pay_before_order')
+  await expect(page.locator('#order-bar')).toBeHidden()
+  await order(page, 'Hamburguesa de la casa')
+  await expect(page.locator('#order-bar')).toBeVisible()
+  await expect(page.locator('#order-label')).toHaveText('Pedido · 1 plato')
+  await expect(page.locator('#order-action')).toHaveText('Pedir y pagar')
+
+  await page.locator('#order-action').tap()
+  await expect(page.locator('#pay')).toBeVisible()
+  await expect(page.locator('#pay-amount')).toHaveText('$30.240')
+  await expect(page.locator('#order-bar')).toBeHidden()
+})
+
+test('alone on a tab: one tap sends the round to the kitchen', async ({ page }) => {
+  const qr = await freshOpenTabTable('flota-cuenta')
+  await joinAs(page, qr, 'Ana', 'open_tab')
+  await order(page, 'Papas OT')
+  await expect(page.locator('#order-action')).toHaveText('Enviar a la cocina')
+  await page.locator('#order-action').tap()
+  await expect(page.locator('#toast')).toContainText('Pedido enviado a cocina')
+  await expect(page.locator('#order-bar')).toBeHidden()
+})
+
+test('with two at the table, "Ver pedido" opens the Cuenta tab with the ways to close the round', async ({ browser }) => {
+  const qr = await freshTable('flota-grupo')
+  const a = await (await browser.newContext()).newPage()
+  await joinAs(a, qr, 'Ana')
+  await joinAs(await (await browser.newContext()).newPage(), qr, 'Beto')
+  await order(a, 'Picada para compartir')
+  await expect(a.locator('#order-action')).toHaveText('Ver pedido', { timeout: 8000 })
+  await a.locator('#order-action').tap()
+  await expect(a.locator('#tab-cart')).toBeVisible()
+  await expect(a.locator('#round-actions button[data-close="equal"]')).toBeVisible()
+  await expect(a.locator('#order-bar')).toBeHidden()
+  // Nothing was closed by the floating bar.
+  const [r] = await sql(`select r.status from rounds r join sessions s on s.id = r.session_id join tables t on t.id = s.table_id where t.qr_token = $1`, [qr])
+  expect(r.status).toBe('draft')
+})
+
+test('the pay bar has priority over the floating order bar', async ({ page }) => {
+  const qr = await freshTable('flota-prioridad')
+  await joinAs(page, qr, 'Ana', 'pay_before_order')
+  await order(page, 'Hamburguesa de la casa')
+  await openCart(page)
+  await page.locator('#round-actions button').tap()
+  await expect(page.locator('#bar')).toBeVisible()
+  // A new dish overflows into a new draft round while the first is in collection.
+  await openMenu(page)
+  await order(page, 'Cerveza artesanal')
+  await settled(page)
+  await expect(page.locator('#bar')).toBeVisible()
+  await expect(page.locator('#order-bar')).toBeHidden()
+
+  // And the bar pays round 1, not the new round being built.
+  await expect(page.locator('#bar-amount')).toHaveText('$30.240')
+  await page.locator('#bar-action').tap()
+  await page.locator('#pay-confirm').tap()
+  await expect(page.locator('#toast')).toContainText('Pagado', { timeout: 8000 })
+  const rounds = await sql(
+    `select r.round_number, r.status from rounds r join sessions s on s.id = r.session_id join tables t on t.id = s.table_id
+      where t.qr_token = $1 order by r.round_number`, [qr])
+  expect(rounds.map((r) => [r.round_number, r.status])).toEqual([[1, 'paid_and_dispatched'], [2, 'draft']])
+  // The pay bar left; the order bar is back for round 2.
+  await expect(page.locator('#order-bar')).toBeVisible({ timeout: 8000 })
+})

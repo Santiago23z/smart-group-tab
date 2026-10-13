@@ -165,12 +165,14 @@ function show(screen) {
 // ---------------------------------------------------------------------------
 // Tabs
 // ---------------------------------------------------------------------------
+function showTab(tab) {
+  document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab))
+  $('tab-menu').hidden = tab !== 'menu'
+  $('tab-cart').hidden = tab !== 'cart'
+  if (state) renderOrderBar(currentRound())
+}
 for (const btn of document.querySelectorAll('.tabs button')) {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b === btn))
-    $('tab-menu').hidden = btn.dataset.tab !== 'menu'
-    $('tab-cart').hidden = btn.dataset.tab !== 'cart'
-  })
+  btn.addEventListener('click', () => showTab(btn.dataset.tab))
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +185,12 @@ const currentRound = () =>
   state?.rounds.find((r) => r.status === 'draft') ??
   state?.rounds.find((r) => r.status === 'locked_for_payment') ??
   state?.rounds.at(-1) ?? null
+/**
+ * The round to pay. Not currentRound(): once someone orders more while a round
+ * is in collection, the new draft becomes "current", and the pay bar and the
+ * payment itself must still be about the round in collection.
+ */
+const payingRound = () => state?.rounds.find((r) => r.status === 'locked_for_payment') ?? currentRound()
 
 function render() {
   if (!state) return
@@ -198,7 +206,8 @@ function render() {
 
   renderMenu()
   renderCart(round)
-  renderBar(round)
+  renderBar(payingRound())
+  renderOrderBar(round)
 }
 
 // Two drawn icons stacked in the same spot: the plus, and the tick that draws
@@ -469,6 +478,49 @@ function renderOtherRounds() {
       </div>`).join('')}`)
 }
 
+// ---------------------------------------------------------------------------
+// The floating order bar: on the menu, once the round has dishes. Alone, its
+// button closes the round (and opens the pay sheet when the round must be
+// paid first); with others, it shows the Cuenta tab, where the split is chosen
+// for everyone. The pay bar always wins the bottom of the screen.
+// ---------------------------------------------------------------------------
+function renderOrderBar(round) {
+  const items = round?.status === 'draft' ? round.items : []
+  const show = items.length > 0 && !$('tab-menu').hidden && $('bar').hidden &&
+    state.session.status !== 'closed'
+  $('order-bar').hidden = !show
+  if (!show) return
+  const dishes = items.reduce((n, i) => n + Number(i.quantity), 0)
+  setText($('order-label'), `Pedido · ${dishes} ${dishes === 1 ? 'plato' : 'platos'}`)
+  setText($('order-amount'), money(round.total))
+  $('order-action').textContent = !alone() ? 'Ver pedido'
+    : state.session.service_mode === 'open_tab' ? 'Enviar a la cocina' : 'Pedir y pagar'
+}
+
+async function closeRound(splitMode) {
+  const r = await api('/api/round/close', {
+    session_id: me.sessionId, participant_id: me.participantId, split_mode: splitMode,
+  })
+  if (r.status === 'rejected') {
+    toast(explain(r), true)
+    return null
+  }
+  toast(r.status === 'dispatched' ? 'Pedido enviado a cocina' : 'Ronda en cobro')
+  await refresh()
+  return r
+}
+
+async function onOrderAction() {
+  if (!alone()) {
+    showTab('cart')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    return
+  }
+  const r = await closeRound('as_ordered')
+  // Collected before the kitchen: straight to paying, no tab switch, no scrolling.
+  if (r?.status === 'collecting' && !$('bar').hidden && $('bar-action').dataset.action) onBarAction()
+}
+
 function renderBar(round) {
   const bar = $('bar')
   const reservation = state.my_reservation
@@ -589,15 +641,8 @@ document.addEventListener('click', async (e) => {
     if (btn.dataset.photo) await openPhoto(btn)
     if (btn.id === 'photo-view') await closePhoto()
 
-    if (btn.dataset.close) {
-      const r = await api('/api/round/close', {
-        session_id: me.sessionId, participant_id: me.participantId,
-        split_mode: btn.dataset.close,
-      })
-      if (r.status === 'rejected') return toast(explain(r), true)
-      toast(r.status === 'dispatched' ? 'Pedido enviado a cocina' : 'Ronda en cobro')
-      await refresh()
-    }
+    if (btn.dataset.close) await closeRound(btn.dataset.close)
+    if (btn.id === 'order-action') await onOrderAction()
 
     if (btn.id === 'ask-bill') {
       const r = await api('/api/bill', { session_id: me.sessionId, participant_id: me.participantId })
@@ -715,7 +760,7 @@ async function saveSharing() {
 // — handing the shares back to the table for the length of a round trip, in a
 // race the diner would have no idea they were in.
 function onBarAction() {
-  const round = currentRound()
+  const round = payingRound()
   const reservation = state.my_reservation
 
   const tab = $('bar-action').dataset.scope === 'tab'
@@ -773,7 +818,7 @@ function payError(message) {
 }
 
 async function confirmPayment() {
-  const round = currentRound()
+  const round = payingRound()
   let reservation = state.my_reservation
 
   // Claim first, with the tip already decided.
