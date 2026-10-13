@@ -93,6 +93,12 @@ Una sola pantalla para el personal, protegida con un enlace secreto:
     Nequi, transferencia o efectivo) → **Llegó** / **No llegó**.
   - Un pedido que no llegó a la cocina → **Reintentar envío**.
   - Un cobro trabado → **Reanudar cobro** o **Cancelar ronda**.
+  - **Cuenta sin pagar hace rato** (en ámbar, es un aviso): alguien de una mesa con cuenta abierta
+    debe desde hace más de 90 minutos (se cambia con `KDS_UNPAID_MINUTES`). Dice quién, cuánto y
+    desde hace cuánto. Se va sola cuando esa persona paga; **Visto** la silencia hasta que otra
+    persona de la mesa pase el límite. No bloquea nada.
+  - En **Mesas abiertas**, al lado de lo que debe cada uno aparece "hace …", resaltado en ámbar
+    cuando pasa el límite.
 - **Cobros abiertos:** rondas esperando pago, quién tiene apartada su parte, y los botones
   **Liberar** (soltar una parte apartada) y **Cancelar ronda**.
 - **Cobrar en caja:** en "Cobros abiertos" y en "Mesas abiertas", el mesero registra un pago
@@ -248,6 +254,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 12 oct | Quien está solo en la mesa ve un solo botón, sin opciones de dividir |
 | 12 oct | El cliente elige cómo paga la mesa (cada ronda o al final) y puede pasarse a pagar al final |
 | 13 oct | La mesa cambia cómo paga en los dos sentidos, también desde la hoja de pago; con cuenta abierta se paga lo propio antes de la cuenta |
+| 13 oct | La cocina ve quién debe y desde hace cuánto, con un aviso cuando pasa de 90 minutos |
 
 ## Lo que falta
 

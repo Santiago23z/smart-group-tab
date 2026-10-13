@@ -59,9 +59,9 @@ test('checking a delivery', async (t) => {
 })
 
 // ---------------------------------------------------------------------------
-async function startKds() {
+async function startKds(opts = {}) {
   const server = createKdsServer({
-    pool, dispatchToken: DISPATCH, staffToken: STAFF,
+    pool, dispatchToken: DISPATCH, staffToken: STAFF, ...opts,
     log: { log() {}, error() {} },
   })
   await new Promise((r) => server.listen(0, '127.0.0.1', r))
@@ -574,4 +574,26 @@ test('a description uploaded from the spreadsheet shows in the Carta panel', asy
   assert.equal(res.status, 200)
   const products = (await (await kds.staff(`/kds/api/venues/${venue.venueId}/menu`)).json()).products
   assert.equal(products.find((p) => p.name === 'Picada').description, 'Chorizo, morcilla y arepa')
+})
+
+test('someone who has owed on a tab past the threshold shows in the alerts, and in open tables', async (t) => {
+  const kds = await startKds({ unpaidMinutes: 30 })
+  t.after(() => kds.close())
+  const venue = await createVenue(pool, { serviceMode: 'open_tab', products: [{ price: 25_000 }] })
+  const ana = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Ana' })
+  await addItem(pool, { sessionId: ana.session_id, participantId: ana.participant_id, productId: venue.menu[0].id })
+  const round = await closeRound(pool, { sessionId: ana.session_id })
+  await pool.query(`update rounds set dispatched_at = now() - interval '45 minutes' where id = $1`, [round.round_id])
+
+  let state = await (await kds.staff('/kds/api/state')).json()
+  assert.equal(state.unpaid_minutes, 30)
+  const alert = state.alerts.tables.find((a) => a.session_id === ana.session_id)
+  assert.deepEqual(alert.reasons.map((r) => [r.kind, r.nickname, Number(r.unpaid)]), [['tab_unpaid_long', 'Ana', 25_000]])
+  const open = state.open_tables.find((o) => o.session_id === ana.session_id)
+  assert.ok(open.tab.participants[0].unpaid_since)
+
+  // Visto covers it.
+  assert.equal((await kds.staff(`/kds/api/alerts/${ana.session_id}/ack`, { method: 'POST' })).status, 200)
+  state = await (await kds.staff('/kds/api/state')).json()
+  assert.ok(state.alerts.tables.find((a) => a.session_id === ana.session_id).acknowledged_at)
 })

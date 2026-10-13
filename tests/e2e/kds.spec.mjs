@@ -565,3 +565,25 @@ test('an open-tab ticket turns "pagado · por llevar" when the table pays, and "
   await dialog.getByRole('button', { name: 'Cerrar' }).click()
   await expect(dialog).toBeHidden()
 })
+
+// ---------------------------------------------------------------------------
+// Someone has owed on a tab for too long
+// ---------------------------------------------------------------------------
+test('a tab unpaid for two hours: an amber alert names who owes, and open tables highlight them', async ({ page }) => {
+  const { sessionId } = await servedTab('kds-debe')
+  await sql(`update rounds set dispatched_at = now() - interval '2 hours' where session_id = $1`, [sessionId])
+
+  await openScreen(page)
+  const alert = page.locator(`.alert[data-session="${sessionId}"]`)
+  await expect(alert).toContainText('Ana debe $14.000 · hace 2 h', { timeout: 8000 })
+  await expect(alert).toHaveClass(/warn/)
+
+  const person = page.locator(`#table-list [data-session="${sessionId}"] .holds li`, { hasText: 'Ana' })
+  await expect(person).toHaveClass(/overdue/)
+  await expect(person).toContainText('hace 2 h')
+
+  await alert.getByRole('button', { name: 'Visto' }).click()
+  await expect(alert).toHaveClass(/acked/, { timeout: 8000 })
+  // A warning, not a flag: the table is still just open.
+  expect((await sql(`select status from sessions where id = $1`, [sessionId]))[0].status).toBe('open')
+})

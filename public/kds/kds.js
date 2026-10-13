@@ -149,6 +149,13 @@ function waited(sinceIso) {
 
 const money = (n) => `$${Number(n).toLocaleString('es-CO')}`
 
+/** "45 min", "1 h 20 min": how long ago, on the server's clock. */
+function sinceText(iso) {
+  const minutes = Math.floor(waited(iso).seconds / 60)
+  return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`
+}
+const overdue = (iso) => last && waited(iso).seconds >= last.unpaid_minutes * 60
+
 function describe(reason) {
   switch (reason.kind) {
     case 'money_not_placed':
@@ -157,6 +164,9 @@ function describe(reason) {
       return `El pedido de la ronda ${reason.round_number} no llegó (${reason.channel}): ${reason.error ?? 'sin detalle'}.`
     case 'collection_stalled':
       return `El cobro de la ronda ${reason.round_number} quedó trabado.`
+    case 'tab_unpaid_long':
+      return el('span', {}, `${reason.nickname} debe ${money(reason.unpaid)} · hace `,
+        el('span', { class: 'since', 'data-since': reason.unpaid_since }, sinceText(reason.unpaid_since)))
     default:
       return 'La mesa quedó marcada para revisión sin un motivo conocido.'
   }
@@ -208,7 +218,8 @@ function renderAlerts(alerts) {
 
   $('no-alerts').hidden = tables.length > 0
   $('alert-list').replaceChildren(...tables.map((a) =>
-    el('li', { class: `alert${a.acknowledged_at ? ' acked' : ''}${fresh(`a:${a.session_id}`)}`, 'data-session': a.session_id },
+    // Only an unpaid tab: a warning in amber, not a red alarm.
+    el('li', { class: `alert${a.reasons.every((r) => r.kind === 'tab_unpaid_long') ? ' warn' : ''}${a.acknowledged_at ? ' acked' : ''}${fresh(`a:${a.session_id}`)}`, 'data-session': a.session_id },
       el('span', { class: 'alert-table' }, a.table),
       el('ul', {}, ...a.reasons.map((r) => el('li', { 'data-kind': r.kind }, describe(r), reasonActions(a, r)))),
       a.acknowledged_at
@@ -631,7 +642,10 @@ function renderOpenTables(tables) {
       el('span', { class: 'collection-head' }, `${t.table}${asked ? ' · cuenta pedida' : ''}`),
       el('span', {}, owed > 0 ? `Cuenta pendiente: ${money(owed)}` : 'Sin cuenta pendiente'),
       owed > 0 && el('ul', { class: 'holds' }, ...t.tab.participants.map((p) =>
-        el('li', {}, el('span', {}, `${p.nickname} · ${money(p.unpaid)}`)))),
+        el('li', { class: p.unpaid_since && overdue(p.unpaid_since) ? 'overdue' : '' },
+          el('span', {}, `${p.nickname} · ${money(p.unpaid)}`,
+            p.unpaid_since && el('span', { class: 'since-line' }, ' · hace ',
+              el('span', { class: 'since', 'data-since': p.unpaid_since }, sinceText(p.unpaid_since))))))),
       Number(t.prepaid_balance) > 0 && el('span', { class: 'muted' }, `Saldo a favor: ${money(t.prepaid_balance)}`),
       t.blockers.length > 0 && el('span', { class: 'muted blockers' }, `Para cerrar: ${blockersText(t.blockers)}.`),
       el('div', { class: 'actions' },
@@ -690,6 +704,9 @@ setInterval(() => {
   if (!last) return
   for (const node of document.querySelectorAll('.ticket-wait')) {
     node.textContent = waited(node.dataset.since).text
+  }
+  for (const node of document.querySelectorAll('.since')) {
+    node.textContent = sinceText(node.dataset.since)
   }
 }, 1000)
 

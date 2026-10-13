@@ -347,3 +347,10 @@ dialog.wide { width: min(46rem, 94vw); max-height: 88vh; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after, ::backdrop { animation: none !important; transition: none !important; }
 }
+
+/* Someone has owed on a tab for too long: a warning, in amber, not the red of
+   a table that needs fixing. */
+.alert.warn { background: var(--warn-soft); box-shadow: inset 0 0 0 1.5px rgba(231, 197, 102, .5); }
+.alert.warn.acked { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.holds li .since-line { color: var(--faint); }
+.holds li.overdue, .holds li.overdue .since-line { color: var(--warn); font-weight: 700; }

@@ -17,6 +17,8 @@ const connectionString = process.env.DATABASE_URL
 const dispatchToken = process.env.DISPATCH_TOKEN
 const staffToken = process.env.KDS_STAFF_TOKEN
 const stallMinutes = Number(process.env.KDS_STALL_MINUTES ?? 2)
+// How long someone may owe on a tab before the screen warns about it.
+const unpaidMinutes = Number(process.env.KDS_UNPAID_MINUTES ?? 90)
 
 if (!connectionString) {
   console.error('DATABASE_URL is not set.')
@@ -34,7 +36,7 @@ if (!staffToken) {
 }
 
 const pool = new pg.Pool({ connectionString, max: 4 })
-const server = createKdsServer({ pool, dispatchToken, staffToken, stallMinutes })
+const server = createKdsServer({ pool, dispatchToken, staffToken, stallMinutes, unpaidMinutes })
 
 server.listen(port, '0.0.0.0', () => {
   console.log(`\n  Kitchen display on http://localhost:${port}/kds#token=<KDS_STAFF_TOKEN>`)

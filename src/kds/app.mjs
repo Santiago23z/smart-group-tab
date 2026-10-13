@@ -88,7 +88,7 @@ async function readBody(req, limitBytes = 1_000_000) {
   return Buffer.concat(chunks).toString('utf8')
 }
 
-export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes = 2, log = console }) {
+export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes = 2, unpaidMinutes = 90, log = console }) {
   if (!dispatchToken || !staffToken) {
     throw new Error('createKdsServer needs both dispatchToken and staffToken')
   }
@@ -141,7 +141,7 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
         if (req.method === 'GET' && url.pathname === '/kds/api/state') {
           const [tickets, alerts, collections, openTables, cashRequests, takings] = await Promise.all([
             one(ACTIVE_TICKETS),
-            one(`select staff_alerts(make_interval(mins => $1::int)) as r`, [stallMinutes]),
+            one(`select staff_alerts(make_interval(mins => $1::int), make_interval(mins => $2::int)) as r`, [stallMinutes, unpaidMinutes]),
             one(`select staff_collections() as r`),
             one(`select staff_open_tables() as r`),
             one(`select staff_cash_requests() as r`),
@@ -151,7 +151,7 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
           // tablet's, which nobody in a kitchen will ever set.
           return reply(200, {
             now: new Date().toISOString(), tickets, alerts, collections, open_tables: openTables,
-            cash_requests: cashRequests, takings,
+            cash_requests: cashRequests, takings, unpaid_minutes: unpaidMinutes,
           })
         }
 
@@ -247,7 +247,7 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
         if (req.method === 'POST' && ack) {
           if (!UUID.test(ack[1])) return reply(400, { error: 'bad_session' })
           try {
-            return reply(200, await one(`select acknowledge_alert($1) as r`, [ack[1]]))
+            return reply(200, await one(`select acknowledge_alert($1, make_interval(mins => $2::int)) as r`, [ack[1], unpaidMinutes]))
           } catch (err) {
             if (err.code === '23503') return reply(404, { error: 'unknown_session' })
             throw err

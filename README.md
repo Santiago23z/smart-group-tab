@@ -430,6 +430,13 @@ has no reason left it goes back to `open` on its own.
 A red banner appears when due dispatches have waited longer than
 `KDS_STALL_MINUTES` (default 2): that is a stopped worker, not an idle queue.
 
+**Someone has owed on a tab too long.** `staff_alerts` also lists open tables where a
+participant's oldest unpaid dish went to the kitchen more than `KDS_UNPAID_MINUTES`
+(default 90) ago, one reason per person (`staff_unpaid_reasons`), in amber. It is a
+warning, not a flag: the session's state does not change, and the reason is kept out of
+`staff_alert_reasons` so it can never keep a flagged table flagged. *Mesas abiertas* shows,
+per person, how long their part has been unpaid.
+
 **One screen shows every venue.** There is no venue scoping yet; the staff token
 is per deployment. Fine for the demo, wrong for a second venue.
 
