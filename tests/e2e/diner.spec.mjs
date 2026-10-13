@@ -527,3 +527,52 @@ test('a dish description shows under its name, opens whole on tap, and goes with
   await expect(page.locator('#photo-name')).toHaveText('Cerveza OT')
   await expect(page.locator('#photo-desc')).toHaveText(long)
 })
+
+// ---------------------------------------------------------------------------
+// Alone at the table: nothing to share, one button
+// ---------------------------------------------------------------------------
+test('alone at a table that pays each round: no "Compartir", one "Pedir y pagar"', async ({ page }) => {
+  const qr = await freshTable('solo')
+  await joinAs(page, qr, 'Ana')
+  await order(page, 'Hamburguesa de la casa')
+  await openCart(page)
+
+  await expect(page.locator('#cart-list .row.item')).toHaveCount(1)
+  await expect(page.locator('#cart-list button[data-share]')).toHaveCount(0)
+  await expect(page.locator('#round-actions button')).toHaveCount(1)
+  await expect(page.locator('#round-actions button')).toHaveText('Pedir y pagar')
+
+  // It closes as ordered: Ana owes what she added, and pays it.
+  await page.locator('#round-actions button').tap()
+  await expect(page.locator('#bar-action')).toHaveText('Pagar lo mío')
+})
+
+test('alone at a tab table the button says "Enviar a la cocina"', async ({ page }) => {
+  const qr = await freshOpenTabTable('solo-tab')
+  await joinAs(page, qr, 'Ana')
+  await order(page, 'Papas OT')
+  await openCart(page)
+  await expect(page.locator('#round-actions button')).toHaveText('Enviar a la cocina')
+  await page.locator('#round-actions button').tap()
+  await expect(page.locator('#round-actions')).toContainText('Pedido en cocina')
+})
+
+test('when a second diner joins, both phones offer to share and to split again', async ({ browser }) => {
+  const qr = await freshTable('solo-join')
+  const a = await (await browser.newContext()).newPage()
+  await joinAs(a, qr, 'Ana')
+  await order(a, 'Picada para compartir')
+  await openCart(a)
+  await expect(a.locator('#cart-list button[data-share]')).toHaveCount(0)
+
+  const b = await (await browser.newContext()).newPage()
+  await joinAs(b, qr, 'Beto')
+  await openCart(b)
+
+  // Ana's phone catches up on its own: no reload.
+  for (const phone of [a, b]) {
+    await expect(phone.locator('#cart-list button[data-share]')).toHaveCount(1, { timeout: 8000 })
+    await expect(phone.locator('#round-actions button[data-close="as_ordered"]')).toContainText('cada quien lo suyo')
+    await expect(phone.locator('#round-actions button[data-close="equal"]')).toBeVisible()
+  }
+})

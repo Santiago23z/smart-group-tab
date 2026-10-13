@@ -138,6 +138,8 @@ for (const btn of document.querySelectorAll('.tabs button')) {
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
+/** One diner at the table: nothing to share, nothing to split. */
+const alone = () => state?.participants.length === 1
 const nameOf = (id) => state?.participants.find((p) => p.id === id)?.nickname ?? '—'
 const currentRound = () =>
   state?.rounds.find((r) => r.status === 'draft') ??
@@ -227,7 +229,7 @@ function renderCart(round) {
             </div>
             ${editable ? `
               <div class="item-actions">
-                <button class="text" data-share="${item.id}">Compartir</button>
+                ${alone() ? '' : `<button class="text" data-share="${item.id}">Compartir</button>`}
                 <button class="text" data-void="${item.id}">Quitar</button>
               </div>` : ''}
           </div>
@@ -328,7 +330,9 @@ function renderRoundActions(round) {
   if (!round) return paint(el, '')
 
   if (round.status === 'draft') {
-    paint(el, round.items.length === 0 ? '' : `
+    // Alone, both splits charge the same: one button, saying what happens next.
+    paint(el, round.items.length === 0 ? '' : alone() ? `
+      <button data-close="as_ordered">${state.session.service_mode === 'open_tab' ? 'Enviar a la cocina' : 'Pedir y pagar'}</button>` : `
       <button data-close="as_ordered">Cerrar ronda · cada quien lo suyo</button>
       <button class="ghost" data-close="equal">Cerrar ronda · partes iguales</button>`)
     return

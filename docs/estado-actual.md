@@ -32,7 +32,9 @@ propósito (solo queda saldo si alguien paga de más), así que en la práctica 
 1. **Entrar.** El comensal escanea el QR de la mesa y escribe un apodo.
 2. **Pedir.** Todos agregan platos al mismo carrito, desde su celular. Un plato se puede
    compartir entre varias personas; cada una ve cuánto le toca.
-3. **Cerrar la ronda.** El carrito se congela. Lo que se pida después va a una ronda nueva.
+3. **Cerrar la ronda.** El carrito se congela. Lo que se pida después va a una ronda nueva. Quien
+   está solo en la mesa no ve "Compartir" ni las dos formas de dividir: ve un solo botón, **Pedir y
+   pagar** o **Enviar a la cocina** según cómo paga la mesa. Si alguien se une, aparecen solas.
 4. **Pagar la ronda** (en "pagar antes de pedir"). Cada persona paga lo suyo ("Pagar lo mío") o
    alguien cubre lo que falta ("Cubrir el resto"). Lo que se paga queda apartado 5 minutos para
    esa persona, así dos personas nunca pagan lo mismo.
@@ -236,6 +238,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 7 oct | Pulido visual de las dos pantallas: letra con serifa en títulos y animaciones suaves |
 | 12 oct | La cocina ve si cada pedido está pagado, y cuánta plata entró hoy |
 | 12 oct | La cocina elige cómo se cobra: pagar antes o cuenta abierta |
+| 12 oct | Quien está solo en la mesa ve un solo botón, sin opciones de dividir |
 
 ## Lo que falta
 
