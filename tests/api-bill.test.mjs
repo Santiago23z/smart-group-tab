@@ -65,13 +65,18 @@ test('a diner asks for the bill, sees the tab, and reserves their part of it', a
   } finally { await api.stop() }
 })
 
-test('the tab cannot be reserved before the bill', async () => {
+test('before the bill a diner pays only their own part of a tab; the rest waits for the bill', async () => {
   const api = await startApi()
   try {
     const venue = await createVenue(pool, { serviceMode: 'open_tab', products: [{ price: 5_000 }] })
     const ana = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Ana' })
-    const r = await api.post('/api/reserve-tab', { session_id: ana.session_id, participant_id: ana.participant_id, mode: 'my_items' })
-    assert.deepEqual([r.status, r.reason], ['rejected', 'bill_not_requested'])
+    await addItem(pool, { sessionId: ana.session_id, participantId: ana.participant_id, productId: venue.menu[0].id })
+    await closeRound(pool, { sessionId: ana.session_id })
+
+    const rest = await api.post('/api/reserve-tab', { session_id: ana.session_id, participant_id: ana.participant_id, mode: 'remaining' })
+    assert.deepEqual([rest.status, rest.reason], ['rejected', 'bill_not_requested'])
+    const mine = await api.post('/api/reserve-tab', { session_id: ana.session_id, participant_id: ana.participant_id, mode: 'my_items' })
+    assert.deepEqual([mine.status, Number(mine.order_amount)], ['reserved', 5_000])
   } finally { await api.stop() }
 })
 
@@ -110,7 +115,7 @@ test('the diner menu carries each dish\'s description', async () => {
   } finally { await api.stop() }
 })
 
-test('the join screen asks the table, the opener chooses, and a table paying each round switches to a tab', async () => {
+test('the join screen asks the table, the opener chooses, and the table changes how it pays either way', async () => {
   const api = await startApi()
   try {
     const venue = await createVenue(pool, { products: [{ price: 15_000 }] })
@@ -126,15 +131,22 @@ test('the join screen asks the table, the opener chooses, and a table paying eac
     // Refused while a round is in collection; allowed once nothing is.
     await addItem(pool, { sessionId: ana.session_id, participantId: ana.participant_id, productId: venue.menu[0].id })
     await closeRound(pool, { sessionId: ana.session_id })
-    const refused = await api.post('/api/switch-to-tab', { session_id: ana.session_id, participant_id: ana.participant_id })
-    assert.deepEqual([refused.status, refused.reason], ['rejected', 'round_in_collection'])
+    // Beto is paying his part right now: the table cannot change under him.
+    const roundId = (await pool.query(`select id from rounds where session_id = $1 and status = 'locked_for_payment'`, [ana.session_id])).rows[0].id
+    await pool.query(`select reserve_contribution($1, $2, 'remaining', $3, null, null, 0)`, [roundId, beto.participant_id, `api-${Math.random()}`])
+    const refused = await api.post('/api/table-payment', { session_id: ana.session_id, participant_id: ana.participant_id, mode: 'open_tab' })
+    assert.deepEqual([refused.status, refused.reason], ['rejected', 'someone_paying'])
 
     const fresh = await createVenue(pool)
     const solo = await api.post('/api/join', { qr_token: fresh.qrToken, nickname: 'Solo', mode: 'pay_before_order' })
-    const switched = await api.post('/api/switch-to-tab', { session_id: solo.session_id, participant_id: solo.participant_id })
-    assert.equal(switched.status, 'switched')
-    const state = await api.get(`/api/state?session_id=${solo.session_id}&participant_id=${solo.participant_id}`)
+    const toTab = await api.post('/api/table-payment', { session_id: solo.session_id, participant_id: solo.participant_id, mode: 'open_tab' })
+    assert.equal(toTab.status, 'changed')
+    let state = await api.get(`/api/state?session_id=${solo.session_id}&participant_id=${solo.participant_id}`)
     assert.equal(state.session.service_mode, 'open_tab')
+    const back = await api.post('/api/table-payment', { session_id: solo.session_id, participant_id: solo.participant_id, mode: 'pay_before_order' })
+    assert.equal(back.status, 'changed')
+    state = await api.get(`/api/state?session_id=${solo.session_id}&participant_id=${solo.participant_id}`)
+    assert.equal(state.session.service_mode, 'pay_before_order')
 
     const bad = await api.post('/api/join', { qr_token: fresh.qrToken, nickname: 'X', mode: 'hybrid' })
     assert.deepEqual([bad.status, bad.reason], ['rejected', 'invalid_mode'])

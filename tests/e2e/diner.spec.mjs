@@ -600,7 +600,8 @@ test('alone, choosing "Abrir cuenta": the food goes to the kitchen unpaid, and s
   await openCart(page)
   await page.locator('#round-actions button').tap()
   await expect(page.locator('#round-actions')).toContainText('Pedido en cocina')
-  await expect(page.locator('#bar')).toBeHidden()
+  // Nothing was charged: what she owes is on the tab, payable whenever she likes.
+  await expect(page.locator('#bar-label')).toHaveText('Lo tuyo hasta ahora')
 
   await page.locator('#ask-bill').tap()
   await page.locator('#bar-action').tap()
@@ -613,12 +614,11 @@ test('paying each round, then switching: round 2 goes unpaid, and the bill holds
   await joinAs(page, qr, 'Ana', 'pay_before_order')
   await expect(page.locator('#table-mode')).toHaveText('Pagan cada ronda')
 
-  // Round 1, paid before the kitchen. No switch offered while it is in collection.
+  // Round 1, paid before the kitchen.
   await order(page, 'Hamburguesa de la casa')
   await openCart(page)
   await page.locator('#round-actions button').tap()
   await expect(page.locator('#bar')).toBeVisible()
-  await expect(page.locator('#switch-tab')).toHaveCount(0)
   await page.locator('#bar-action').tap()
   await page.locator('#pay-confirm').tap()
   await expect(page.locator('#round-actions')).toContainText('Pedido en cocina', { timeout: 8000 })
@@ -628,7 +628,8 @@ test('paying each round, then switching: round 2 goes unpaid, and the bill holds
   await expect(page.locator('#mode-switch')).toContainText('sin pagar')
   await page.locator('#switch-yes').tap()
   await expect(page.locator('#table-mode')).toHaveText('Cuenta abierta · pagan al final')
-  await expect(page.locator('#switch-tab')).toHaveCount(0)
+  // And the way back is offered.
+  await expect(page.locator('#switch-tab')).toHaveText('Pasar a pagar cada ronda')
 
   // Round 2 goes straight to the kitchen.
   await openMenu(page)
@@ -658,4 +659,82 @@ test('a diner arriving at an open table is told how it pays, and is not asked', 
   await b.fill('#nickname', 'Beto')
   await b.click('#join-form button[type=submit]')
   await expect(b.locator('#table-mode')).toHaveText('Cuenta abierta · pagan al final')
+})
+
+// ---------------------------------------------------------------------------
+// Changing how the table pays, from the pay sheet and back; paying early on a tab
+// ---------------------------------------------------------------------------
+test('from the pay sheet: "Seguir pidiendo y pagar todo al final" sends the round to the kitchen', async ({ page }) => {
+  const qr = await freshTable('pagar-despues')
+  await joinAs(page, qr, 'Ana', 'pay_before_order')
+  await order(page, 'Hamburguesa de la casa')
+  await openCart(page)
+  await page.locator('#round-actions button').tap()
+  await page.locator('#bar-action').tap()
+  await expect(page.locator('#pay')).toBeVisible()
+
+  await page.locator('#pay-later-ask').tap()
+  await expect(page.locator('#pay-later-confirm')).toContainText('se va ya a la cocina')
+  await page.locator('#pay-later-yes').tap()
+  await expect(page.locator('#pay')).toBeHidden()
+  await expect(page.locator('#table-mode')).toHaveText('Cuenta abierta · pagan al final')
+  await expect(page.locator('#round-actions')).toContainText('Pedido en cocina')
+
+  const [r] = await sql(
+    `select r.status, (select count(*) from dispatches d where d.round_id = r.id) as dispatches
+       from rounds r join sessions s on s.id = r.session_id join tables t on t.id = s.table_id
+      where t.qr_token = $1 and r.round_number = 1`, [qr])
+  expect([r.status, Number(r.dispatches)]).toEqual(['paid_and_dispatched', 2])
+})
+
+test('a tab table switches back to paying each round: the next round asks for payment', async ({ page }) => {
+  const qr = await freshOpenTabTable('vuelve')
+  await joinAs(page, qr, 'Ana', 'open_tab')
+  await openCart(page)
+  await expect(page.locator('#switch-tab')).toHaveText('Pasar a pagar cada ronda')
+  await page.locator('#switch-tab').tap()
+  await expect(page.locator('#mode-switch')).toContainText('cada ronda se paga antes')
+  await page.locator('#switch-yes').tap()
+  await expect(page.locator('#table-mode')).toHaveText('Pagan cada ronda')
+
+  await openMenu(page)
+  await order(page, 'Papas OT')
+  await openCart(page)
+  await expect(page.locator('#round-actions button')).toHaveText('Pedir y pagar')
+  await page.locator('#round-actions button').tap()
+  await expect(page.locator('#bar')).toBeVisible()
+  await expect(page.locator('#round-actions')).toContainText('En cobro')
+})
+
+test('on a tab, Carla pays her part before the bill and Ana keeps ordering', async ({ browser }) => {
+  const qr = await freshOpenTabTable('temprano')
+  const ana = await (await browser.newContext()).newPage()
+  const carla = await (await browser.newContext()).newPage()
+  await joinAs(ana, qr, 'Ana', 'open_tab')
+  await joinAs(carla, qr, 'Carla')
+  await order(ana, 'Cerveza OT')
+  await order(carla, 'Papas OT')
+  await openCart(ana)
+  await ana.locator('button[data-close="as_ordered"]').tap()
+  await expect(ana.locator('#toast')).toContainText('Pedido enviado a cocina')
+
+  // Carla: her part so far, payable now, with no "pay the waiter" before the bill.
+  await openCart(carla)
+  await expect(carla.locator('#bar-label')).toHaveText('Lo tuyo hasta ahora', { timeout: 8000 })
+  await expect(carla.locator('#bar-amount')).toHaveText('$14.000')
+  await carla.locator('#bar-action').tap()
+  await expect(carla.locator('#cash-options')).toBeHidden()
+  await carla.locator('#pay-confirm').tap()
+  await expect(carla.locator('#toast')).toContainText('Pagado')
+
+  // Nobody asked for the bill: Ana orders again.
+  await openMenu(ana)
+  await order(ana, 'Cerveza OT')
+  await openCart(ana)
+  await ana.locator('button[data-close="as_ordered"]').tap()
+  await expect(ana.locator('#toast')).toContainText('Pedido enviado a cocina')
+  const [s] = await sql(
+    `select s.bill_requested_at, tab_summary(s.id) as tab from sessions s join tables t on t.id = s.table_id where t.qr_token = $1`, [qr])
+  expect(s.bill_requested_at).toBeNull()
+  expect(Number(s.tab.total)).toBe(18_000)
 })

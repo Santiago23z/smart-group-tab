@@ -34,6 +34,7 @@ construction. That is the whole design.
 | 10 | Diners ask from the app to pay in cash or on the terminal | **verified in a browser** |
 | 11 | Kitchen tickets say whether the round is paid; today's takings on the kitchen screen | **verified in a browser** |
 | 12 | Diners choose how the table pays (each round / tab at the end) and can switch to a tab; a diner alone sees no split buttons | **verified in a browser** |
+| 13 | The table switches either way, also from the pay sheet; at a tab a diner pays their part before the bill | **verified in a browser** |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
 finished and verified while the ordering half did not exist at all: there were
@@ -500,7 +501,7 @@ npm run venue:load -- --name "La Terraza" --mode open_tab --tables 12 --bar 3 --
 npm run venue:qr   -- --name "La Terraza" --base https://app.example.com
 ```
 
-**Who picks the mode.** The first diner at a free table chooses `pay_before_order` or `open_tab` on the join screen (`table_status()` tells the screen whether the table is free; `open_or_join_session(qr, nickname, mode)` records it). The venue's `--mode` is only the fallback when no choice is sent. A `pay_before_order` table can `switch_to_tab()` while no round is in collection; closed rounds keep `requires_prepayment`, so the tab never charges them again.
+**Who picks the mode.** The first diner at a free table chooses `pay_before_order` or `open_tab` on the join screen (`table_status()` tells the screen whether the table is free; `open_or_join_session(qr, nickname, mode)` records it). The venue's `--mode` is only the fallback when no choice is sent. Once seated, any diner can switch the whole table either way with `set_table_payment()` while nobody holds a live reservation and the bill has not been asked for; rounds already in the kitchen keep `requires_prepayment`, so the tab never charges what was paid. Switching to a tab while a round is in collection dispatches it through `release_round_to_tab()` — the same status-guarded transition and outbox as every dispatch — and its unpaid shares join the tab. At a tab, `reserve_tab(…, 'my_items')` works before the bill; covering the rest still waits for it.
 
 `venue:load` creates or updates the bar by name, in one transaction: numbered
 tables ("Mesa 1…", "Barra 1…") with random QR tokens — unlike the guessable

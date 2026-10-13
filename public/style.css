@@ -472,3 +472,6 @@ button.choice:active { transform: scale(.985); }
 }
 .switch-confirm p { margin: 0; font-size: .92rem; }
 .switch-confirm .sheet-actions { margin-top: .8rem; }
+/* In the pay sheet: keep ordering and pay it all at the end. */
+.pay-later { margin-top: .9rem; text-align: center; }
+.pay-later .switch-confirm { margin-top: .2rem; }

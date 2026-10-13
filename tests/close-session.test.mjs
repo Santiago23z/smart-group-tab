@@ -158,9 +158,10 @@ test('"mine" pays every share of mine across all rounds, in one reservation', as
   assert.deepEqual(s.participants.map((p) => p.nickname), ['Beto'])
 })
 
-test('the tab cannot be reserved before the bill', async () => {
+test('before the bill only "lo mío" can be reserved; covering the rest waits for the bill', async () => {
   const t = await openTab()
-  assert.equal((await call('reserve_tab', t.sessionId, t.ana, 'my_items', key(), 0)).reason, 'bill_not_requested')
+  assert.equal((await call('reserve_tab', t.sessionId, t.ana, 'remaining', key(), 0)).reason, 'bill_not_requested')
+  assert.equal((await call('reserve_tab', t.sessionId, t.ana, 'my_items', key(), 0)).status, 'reserved')
 })
 
 test('two diners covering the rest at once: one holds it, the other gets nothing', async () => {

@@ -101,6 +101,17 @@
       <button id="pay-confirm">Pagar</button>
     </div>
     <p class="error" id="pay-error" hidden></p>
+    <!-- Tired of paying each round: send this one to the kitchen and pay it all at the end. -->
+    <div class="pay-later" id="pay-later" hidden>
+      <button class="text" id="pay-later-ask">Seguir pidiendo y pagar todo al final</button>
+      <div class="switch-confirm" id="pay-later-confirm" hidden>
+        <p>Esta ronda se va ya a la cocina y desde ahora pagan todo al pedir la cuenta. Aplica a toda la mesa.</p>
+        <div class="sheet-actions">
+          <button class="ghost" id="pay-later-no">No</button>
+          <button id="pay-later-yes">Sí, al final</button>
+        </div>
+      </div>
+    </div>
     <!-- Or pay the waiter: asking moves no money, it only calls them over. -->
     <div class="cash-options" id="cash-options">
       <p class="muted tiny">¿Preferís pagarle al mesero?</p>

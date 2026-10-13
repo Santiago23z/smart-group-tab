@@ -16,10 +16,14 @@ Como la plata que se paga por Wompi no se devuelve sola, el sistema está hecho 
 
 **Los elige el cliente.** Quien abre la mesa (la primera persona que escanea el QR) escoge entre
 **Pagar cada ronda** y **Abrir cuenta y pagar al final**; los que llegan después ven cómo paga la
-mesa y se unen a esa forma. Una mesa que paga cada ronda puede **pasarse a pagar al final** en
-cualquier momento en que no haya una ronda en cobro (botón "Pasar a pagar al final" en la Cuenta);
-lo ya pagado no vuelve a cobrarse. Al revés no se puede. Riesgo aceptado: cualquier mesa puede abrir
-cuenta y, por lo tanto, irse sin pagar; para eso está **Asumir pérdida** en la cocina.
+mesa y se unen a esa forma. Ya sentados, **cualquiera puede cambiar cómo paga toda la mesa, en los
+dos sentidos** ("Pasar a pagar al final" / "Pasar a pagar cada ronda", en la Cuenta), siempre que
+nadie esté pagando en ese momento y no hayan pedido la cuenta. Al pagar una ronda también aparece
+**"Seguir pidiendo y pagar todo al final"**: esa ronda se va ya a la cocina y lo que falte queda en la
+cuenta. Lo ya pagado nunca se vuelve a cobrar. Con cuenta abierta, cada quien puede **pagar lo suyo
+antes de pedir la cuenta** ("Lo tuyo hasta ahora") y los demás siguen pidiendo; pagarle al mesero
+antes de la cuenta todavía no se puede. Riesgo aceptado: cualquier mesa puede abrir cuenta y, por lo
+tanto, irse sin pagar; para eso está **Asumir pérdida** en la cocina.
 
 | Modo | Cómo funciona |
 |---|---|
@@ -243,6 +247,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 12 oct | La cocina ve si cada pedido está pagado, y cuánta plata entró hoy |
 | 12 oct | Quien está solo en la mesa ve un solo botón, sin opciones de dividir |
 | 12 oct | El cliente elige cómo paga la mesa (cada ronda o al final) y puede pasarse a pagar al final |
+| 13 oct | La mesa cambia cómo paga en los dos sentidos, también desde la hoja de pago; con cuenta abierta se paga lo propio antes de la cuenta |
 
 ## Lo que falta
 

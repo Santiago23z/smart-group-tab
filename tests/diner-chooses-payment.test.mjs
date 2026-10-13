@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { makePool, createVenue, addItem, closeRound, reserve, confirmWebhook } from './helpers.mjs'
+import { makePool, createVenue, addItem, closeRound } from './helpers.mjs'
 
 const pool = makePool(8)
 test.after(() => pool.end())
@@ -18,13 +18,6 @@ const modeOf = async (sessionId) =>
   (await pool.query(`select service_mode::text as m from sessions where id = $1`, [sessionId])).rows[0].m
 const sessionsAt = async (tableId) =>
   Number((await pool.query(`select count(*) from sessions where table_id = $1`, [tableId])).rows[0].count)
-
-/** Pay a round in collection whole, through the same path Wompi takes. */
-async function payRound(roundId, participantId) {
-  const r = await reserve(pool, { roundId, participantId, mode: 'remaining', key: key() })
-  assert.equal(r.status, 'reserved', JSON.stringify(r))
-  return confirmWebhook(pool, { eventId: key(), reference: r.psp_reference, amount: r.order_amount })
-}
 
 // ---------------------------------------------------------------------------
 // Choosing at the door
@@ -73,67 +66,4 @@ test('the table status says free or open and how it pays, and nothing private', 
   assert.deepEqual(await call('table_status', 'qr-no-such-table'), { status: 'unknown' })
 })
 
-// ---------------------------------------------------------------------------
-// Switching to a tab
-// ---------------------------------------------------------------------------
-/** Ana alone, paying each round, with round 1 paid and in the kitchen. */
-async function paidFirstRound() {
-  const venue = await createVenue(pool, { products: [{ price: 30_000 }, { price: 12_000 }] })
-  const ana = await join(venue.qrToken, 'Ana', 'pay_before_order')
-  const s = ana.session_id
-  await addItem(pool, { sessionId: s, participantId: ana.participant_id, productId: venue.menu[0].id })
-  const r1 = await closeRound(pool, { sessionId: s })
-  assert.equal(r1.status, 'collecting')
-  await payRound(r1.round_id, ana.participant_id)
-  return { venue, s, ana: ana.participant_id, r1: r1.round_id }
-}
-
-test('Ana stops paying each round: round 2 goes unpaid, and the tab holds round 2 only', async () => {
-  const t = await paidFirstRound()
-  const r = await call('switch_to_tab', t.s, t.ana)
-  assert.deepEqual([r.status, r.service_mode], ['switched', 'open_tab'])
-  assert.equal(await modeOf(t.s), 'open_tab')
-
-  await addItem(pool, { sessionId: t.s, participantId: t.ana, productId: t.venue.menu[1].id })
-  assert.equal((await closeRound(pool, { sessionId: t.s })).status, 'dispatched')
-
-  assert.equal((await call('request_bill', t.s, t.ana)).status, 'requested')
-  const tab = await call('tab_summary', t.s)
-  assert.equal(Number(tab.total), 12_000, 'round 1 was paid before the kitchen and is not on the tab')
-})
-
-test('a dish already in the draft round follows the switch', async () => {
-  const t = await paidFirstRound()
-  await addItem(pool, { sessionId: t.s, participantId: t.ana, productId: t.venue.menu[1].id })
-  await call('switch_to_tab', t.s, t.ana)
-  assert.equal((await closeRound(pool, { sessionId: t.s })).status, 'dispatched')
-})
-
-test('the switch is refused while a round is in collection, after the bill, on a tab, when closed, and for a stranger', async () => {
-  // A round in collection.
-  const venue = await createVenue(pool, { products: [{ price: 9_000 }] })
-  const ana = await join(venue.qrToken, 'Ana', 'pay_before_order')
-  await addItem(pool, { sessionId: ana.session_id, participantId: ana.participant_id, productId: venue.menu[0].id })
-  await closeRound(pool, { sessionId: ana.session_id })
-  assert.equal((await call('switch_to_tab', ana.session_id, ana.participant_id)).reason, 'round_in_collection')
-  assert.equal(await modeOf(ana.session_id), 'pay_before_order')
-
-  // After the bill, table still open: the round in collection keeps it from closing.
-  assert.equal((await call('request_bill', ana.session_id, ana.participant_id)).status, 'requested')
-  assert.equal((await call('switch_to_tab', ana.session_id, ana.participant_id)).reason, 'bill_requested')
-
-  // Already on a tab.
-  const tabVenue = await createVenue(pool)
-  const beto = await join(tabVenue.qrToken, 'Beto', 'open_tab')
-  assert.equal((await call('switch_to_tab', beto.session_id, beto.participant_id)).reason, 'not_paying_each_round')
-
-  // Closed: a paid table that asks for the bill with nothing owed closes on its own.
-  const t = await paidFirstRound()
-  assert.equal((await call('request_bill', t.s, t.ana)).closed, true)
-  assert.equal((await call('switch_to_tab', t.s, t.ana)).reason, 'session_closed')
-
-  // Someone from another table.
-  const other = await paidFirstRound()
-  assert.equal((await call('switch_to_tab', other.s, beto.participant_id)).reason, 'participant_not_in_session')
-  assert.equal(await modeOf(other.s), 'pay_before_order')
-})
+// Changing how the table pays once seated: tests/flexible-table-payment.test.mjs.

@@ -245,10 +245,10 @@ const ROUTES = {
 
   // Asks the waiter to come and collect, in cash or on the card terminal.
   // Moves no money and holds nothing.
-  // A table paying each round switches to a tab: rounds go to the kitchen unpaid from now on.
-  'POST /api/switch-to-tab': async (body) =>
+  // The whole table changes how it pays, either way. To a tab, a round in collection goes to the kitchen.
+  'POST /api/table-payment': async (body) =>
     asParticipant(body.participant_id, (c) =>
-      rpc(c, `select switch_to_tab($1,$2) as r`, [body.session_id, body.participant_id])
+      rpc(c, `select set_table_payment($1,$2,$3) as r`, [body.session_id, body.participant_id, body.mode ?? null])
     ),
 
   'POST /api/cash-request': async (body) =>

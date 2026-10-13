@@ -90,6 +90,9 @@ const REASONS = {
   round_in_collection: 'Hay una ronda en cobro: primero hay que pagarla.',
   bill_requested: 'Ya pidieron la cuenta.',
   not_paying_each_round: 'Esta mesa ya paga al final.',
+  someone_paying: 'Alguien de la mesa está pagando ahora. Intenten en unos minutos.',
+  round_needs_staff: 'Una ronda necesita al mesero: pídanle ayuda.',
+  hybrid_table: 'Esta mesa no puede cambiar cómo paga.',
 }
 const METHOD = { cash: 'efectivo', card_terminal: 'datáfono' }
 const explain = (r) => REASONS[r?.reason] ?? r?.reason ?? 'No se pudo.'
@@ -414,30 +417,39 @@ const TABLE_MODE = {
 let confirmingSwitch = false
 
 function renderModeSwitch() {
-  const allowed = state.session.service_mode === 'pay_before_order' &&
+  const mode = state.session.service_mode
+  // What the screen can see; the server has the last word (someone may be paying).
+  const allowed = ['pay_before_order', 'open_tab'].includes(mode) &&
     state.session.status !== 'closed' && !billRequested() &&
-    !state.rounds.some((r) => ['locked_for_payment', 'requires_staff_attention'].includes(r.status))
+    !state.rounds.some((r) => r.status === 'requires_staff_attention')
   if (!allowed) confirmingSwitch = false
+  const toTab = mode === 'pay_before_order'
+  const collecting = state.rounds.some((r) => r.status === 'locked_for_payment')
+  const line = toTab
+    ? `Desde ahora la comida llega sin pagar y pagan todo al pedir la cuenta.${collecting ? ' La ronda en cobro se va ya a la cocina.' : ''} Aplica a toda la mesa.`
+    : 'Desde ahora cada ronda se paga antes de ir a la cocina. Lo que ya pidieron sigue en la cuenta. Aplica a toda la mesa.'
   paint($('mode-switch'), !allowed ? '' : confirmingSwitch ? `
     <div class="switch-confirm">
-      <p>Desde ahora la comida llega sin pagar y pagan todo al pedir la cuenta. Aplica a toda la mesa.</p>
+      <p>${line}</p>
       <div class="sheet-actions">
         <button class="ghost" id="switch-no">No</button>
-        <button id="switch-yes">Sí, al final</button>
+        <button id="switch-yes">${toTab ? 'Sí, al final' : 'Sí, cada ronda'}</button>
       </div>
     </div>` : `
-    <button class="text" id="switch-tab">Pasar a pagar al final</button>`)
+    <button class="text" id="switch-tab">${toTab ? 'Pasar a pagar al final' : 'Pasar a pagar cada ronda'}</button>`)
 }
 
-async function switchToTab() {
-  const r = await api('/api/switch-to-tab', { session_id: me.sessionId, participant_id: me.participantId })
+async function setTablePayment(mode) {
+  const r = await api('/api/table-payment', { session_id: me.sessionId, participant_id: me.participantId, mode })
   confirmingSwitch = false
-  if (r.status !== 'switched') {
+  if (r.status !== 'changed' && r.status !== 'unchanged') {
     toast(explain(r), true)
-    return refresh()
+    await refresh()
+    return false
   }
   await refresh()
-  toast('Listo: desde ahora pagan al final')
+  toast(mode === 'open_tab' ? 'Listo: desde ahora pagan al final' : 'Listo: desde ahora pagan cada ronda')
+  return true
 }
 
 function renderOtherRounds() {
@@ -494,6 +506,21 @@ function renderBar(round) {
     setText($('bar-amount'), money(mine > 0 ? mine : free))
     $('bar-action').textContent = mine > 0 ? 'Pagar lo mío' : 'Cubrir el resto'
     $('bar-action').dataset.action = mine > 0 ? 'my_items' : 'remaining'
+    $('bar-action').dataset.scope = 'tab'
+    return
+  }
+  // A tab before the bill: whoever owes something can pay their part now.
+  if (state.session.service_mode === 'open_tab' && !billRequested()) {
+    const mine = myFreeTab()
+    if (mine <= 0) {
+      bar.hidden = true
+      return
+    }
+    bar.hidden = false
+    setText($('bar-label'), 'Lo tuyo hasta ahora')
+    setText($('bar-amount'), money(mine))
+    $('bar-action').textContent = 'Pagar lo mío'
+    $('bar-action').dataset.action = 'my_items'
     $('bar-action').dataset.scope = 'tab'
     return
   }
@@ -583,7 +610,10 @@ document.addEventListener('click', async (e) => {
     }
     if (btn.id === 'switch-tab') { confirmingSwitch = true; renderModeSwitch() }
     if (btn.id === 'switch-no') { confirmingSwitch = false; renderModeSwitch() }
-    if (btn.id === 'switch-yes') await switchToTab()
+    if (btn.id === 'switch-yes') await setTablePayment(state.session.service_mode === 'pay_before_order' ? 'open_tab' : 'pay_before_order')
+    if (btn.id === 'pay-later-ask') { $('pay-later-ask').hidden = true; $('pay-later-confirm').hidden = false }
+    if (btn.id === 'pay-later-no') { $('pay-later-ask').hidden = false; $('pay-later-confirm').hidden = true }
+    if (btn.id === 'pay-later-yes' && await setTablePayment('open_tab')) $('pay').hidden = true
     if (btn.id === 'start-over') forget('Escaneaste la mesa de nuevo. Elegí tu apodo.')
 
     if (btn.id === 'bar-action') {
@@ -702,8 +732,13 @@ function onBarAction() {
     : 'Se aparta para vos por 5 minutos mientras pagás.'
   $('tip').value = reservation ? reservation.tip_amount || 0 : 0
   $('tip').disabled = Boolean(reservation)
-  // Already paying in Wompi: offering the waiter too would only confuse.
-  $('cash-options').hidden = Boolean(reservation)
+  // Already paying in Wompi: offering the waiter too would only confuse. Before the bill
+  // on a tab, paying the waiter is not possible yet.
+  $('cash-options').hidden = Boolean(reservation) || (tab && !billRequested())
+  // Paying a round, nobody holding it yet: offer to keep ordering and pay it all at the end.
+  $('pay-later').hidden = Boolean(reservation) || tab || state.session.service_mode !== 'pay_before_order'
+  $('pay-later-ask').hidden = false
+  $('pay-later-confirm').hidden = true
   $('pay-error').hidden = true
   $('pay').hidden = false
 }
