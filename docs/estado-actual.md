@@ -14,18 +14,14 @@ Como la plata que se paga por Wompi no se devuelve sola, el sistema está hecho 
 
 ## Los tres modos de cobro
 
-Cada restaurante elige uno desde la pantalla de la cocina (panel **Carta** → "Cómo se cobra"). Una
-mesa conserva el modo con que se abrió aunque el restaurante lo cambie después.
+Cada restaurante elige uno. Una mesa conserva el modo con que se abrió aunque el restaurante lo
+cambie después.
 
 | Modo | Cómo funciona |
 |---|---|
 | **Pagar antes de pedir** | Cada ronda se paga completa antes de que la cocina la reciba. |
 | **Cuenta abierta** | Las rondas van a la cocina sin cobrar; se paga todo al final, al pedir la cuenta. |
 | **Híbrido** | La primera ronda se paga antes; las siguientes se descuentan del saldo a favor de la mesa, y si no alcanza, se cobran. |
-
-El híbrido **todavía no se puede elegir desde la cocina**: hoy ninguna mesa puede dejar saldo a
-propósito (solo queda saldo si alguien paga de más), así que en la práctica se comporta como
-"pagar antes". Completarlo, con un abono, es un cambio aparte.
 
 ## Una noche en la mesa, de punta a punta
 
@@ -237,7 +233,6 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 7 oct | Descripción de cada plato, desde la hoja de la carta |
 | 7 oct | Pulido visual de las dos pantallas: letra con serifa en títulos y animaciones suaves |
 | 12 oct | La cocina ve si cada pedido está pagado, y cuánta plata entró hoy |
-| 12 oct | La cocina elige cómo se cobra: pagar antes o cuenta abierta |
 | 12 oct | Quien está solo en la mesa ve un solo botón, sin opciones de dividir |
 
 ## Lo que falta

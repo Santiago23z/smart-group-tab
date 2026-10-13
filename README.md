@@ -33,7 +33,6 @@ construction. That is the whole design.
 | 9 | Cash and card-terminal payments recorded by staff | **verified in a browser** |
 | 10 | Diners ask from the app to pay in cash or on the terminal | **verified in a browser** |
 | 11 | Kitchen tickets say whether the round is paid; today's takings on the kitchen screen | **verified in a browser** |
-| 12 | The kitchen chooses how the venue collects (pay before / open tab) | **verified in a browser** |
 
 Phase 3.5 was not in the original plan. It got added because the money half was
 finished and verified while the ordering half did not exist at all: there were
@@ -504,12 +503,7 @@ npm run venue:qr   -- --name "La Terraza" --base https://app.example.com
 tables ("Mesa 1…", "Barra 1…") with random QR tokens — unlike the guessable
 `qr-test-mesa-12` — and the menu. Loading again updates prices, hides dishes that
 left the spreadsheet (old bills still point at them) and **never changes a table's
-QR**: those are printed. `--mode` is optional: a new bar starts in
-`pay_before_order`, and loading an existing one without it keeps the mode its
-kitchen chose. From the kitchen screen (Carta → *Cómo se cobra*) staff switch
-between `pay_before_order` and `open_tab` with `staff_set_service_mode`; it applies
-to tables opened afterwards and is logged. `hybrid` is not offered there until a
-table can leave a prepaid balance on purpose. `venue:qr` writes a printable HTML (and a PDF when the
+QR**: those are printed. `venue:qr` writes a printable HTML (and a PDF when the
 test browser is installed) to `qr/`, six cards per A4 page. Without `--base` it
 uses the Mac's `.local` address, which only works on the same wifi.
 

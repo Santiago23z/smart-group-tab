@@ -118,24 +118,6 @@ test('fewer tables on reload deactivates the extra ones instead of deleting them
   assert.deepEqual((await tablesOf(first.venueId)).map((t) => [t.label, t.is_active]), [['Mesa 1', true], ['Mesa 2', true], ['Mesa 3', false]])
 })
 
-test('without a mode: a new venue pays before the kitchen, an existing one keeps the mode its kitchen chose', async () => {
-  const menu = [{ category: null, name: 'Agua', unitPrice: 3000, taxRate: 0 }]
-  const modeOf = async (id) => (await pool.query(`select default_service_mode::text as m from venues where id = $1`, [id])).rows[0].m
-  const name = uniqueName()
-
-  const created = await loadVenue(pool, { name, mode: null, tables: 1, barSeats: 0, menu })
-  assert.equal(await modeOf(created.venueId), 'pay_before_order')
-
-  // The kitchen switches to an open tab; loading the venue again without a mode keeps it.
-  assert.equal((await pool.query(`select staff_set_service_mode($1, 'open_tab') as r`, [created.venueId])).rows[0].r.status, 'updated')
-  await loadVenue(pool, { name, tables: 1, barSeats: 0, menu })
-  assert.equal(await modeOf(created.venueId), 'open_tab')
-
-  // Stating a mode still sets it.
-  await loadVenue(pool, { name, mode: 'hybrid', tables: 1, barSeats: 0, menu })
-  assert.equal(await modeOf(created.venueId), 'hybrid')
-})
-
 test('an unknown mode is refused before anything is written', async () => {
   const name = uniqueName()
   await assert.rejects(loadVenue(pool, { name, mode: 'fiado', tables: 1, barSeats: 0, menu: [] }), /modo/)

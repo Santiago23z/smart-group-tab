@@ -347,22 +347,3 @@ dialog.wide { width: min(46rem, 94vw); max-height: 88vh; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after, ::backdrop { animation: none !important; transition: none !important; }
 }
-
-/* Cómo se cobra (Carta panel) ---------------------------------------------- */
-.mode-box { margin-bottom: 1.2rem; padding-bottom: 1.1rem; border-bottom: 1px solid var(--line-soft); }
-.mode-box h3 { margin: 0 0 .6rem; font-size: .74rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
-.mode-box > .muted { margin: .6rem 0 0; font-size: .85rem; }
-.mode-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .6rem; }
-/* A choice reads as a card, not a call to action: the current one is outlined in amber. */
-button.mode {
-  display: grid; gap: .25rem; text-align: left; padding: .8rem .95rem;
-  background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line), var(--lift);
-}
-button.mode strong { font-size: 1rem; }
-button.mode span { color: var(--muted); font-weight: 500; font-size: .85rem; line-height: 1.35; }
-button.mode.current {
-  box-shadow: inset 0 0 0 1.5px var(--accent);
-  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--surface-2);
-}
-button.mode.current strong::after { content: " · actual"; color: var(--accent); font-weight: 700; }
-button.mode:disabled { opacity: 1; cursor: default; }

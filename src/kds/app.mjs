@@ -62,7 +62,6 @@ const ACTIONS = [
   [/^\/kds\/api\/sessions\/([^/]+)\/write-off$/, 'staff_write_off', (b) => [b.reason ?? null]],
   [/^\/kds\/api\/sessions\/([^/]+)\/close$/, 'staff_close_session', () => []],
   [/^\/kds\/api\/cash-requests\/([^/]+)\/dismiss$/, 'staff_dismiss_cash_request', () => []],
-  [/^\/kds\/api\/venues\/([^/]+)\/service-mode$/, 'staff_set_service_mode', (b) => [b.mode ?? null]],
 ]
 
 // What the bytes say they are, not what the request claims. Both versions of a
@@ -158,7 +157,7 @@ export function createKdsServer({ pool, dispatchToken, staffToken, stallMinutes 
 
         // -- The venue's menu (minimal self-service) --------------------------
         if (req.method === 'GET' && url.pathname === '/kds/api/venues') {
-          const { rows } = await pool.query(`select id, name, default_service_mode as mode from venues order by name, created_at`)
+          const { rows } = await pool.query(`select id, name from venues order by name, created_at`)
           return reply(200, { venues: rows })
         }
         const menuPath = /^\/kds\/api\/venues\/([^/]+)\/menu$/.exec(url.pathname)
