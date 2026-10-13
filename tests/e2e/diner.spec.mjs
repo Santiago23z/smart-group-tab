@@ -738,3 +738,15 @@ test('on a tab, Carla pays her part before the bill and Ana keeps ordering', asy
   expect(s.bill_requested_at).toBeNull()
   expect(Number(s.tab.total)).toBe(18_000)
 })
+
+test('the tick after adding sits dead centre in its button', async ({ page }) => {
+  const qr = await freshTable('tick')
+  await joinAs(page, qr, 'Ana')
+  const button = page.locator('#menu-list .row', { hasText: 'Hamburguesa de la casa' }).locator('button[data-add]')
+  await button.tap()
+  await expect(button).toHaveClass(/done/)
+  await expect(button.locator('.tick')).toHaveCSS('opacity', '1')
+  const [b, t] = await Promise.all([button.boundingBox(), button.locator('.tick').boundingBox()])
+  expect(Math.abs((b.x + b.width / 2) - (t.x + t.width / 2))).toBeLessThan(1)
+  expect(Math.abs((b.y + b.height / 2) - (t.y + t.height / 2))).toBeLessThan(1)
+})

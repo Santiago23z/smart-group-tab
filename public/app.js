@@ -201,6 +201,11 @@ function render() {
   renderBar(round)
 }
 
+// Two drawn icons stacked in the same spot: the plus, and the tick that draws
+// itself in for a moment after adding. Drawn, not typed, so both sit dead centre.
+const ADD_ICONS = '<svg class="ico plus" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>' +
+  '<svg class="ico tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+
 // The page polls every 2 s; redrawing the menu each time would re-decode every
 // photo and make them flicker. Only redraw when something on it changed.
 let menuKey = null
@@ -228,7 +233,7 @@ function renderMenu() {
             ${p.description ? `<button class="desc"><span>${escape(p.description)}</span></button>` : ''}
             <div class="sub">${money(p.unit_price)}${Number(p.tax_rate) ? ' <span class="tax">+ imp.</span>' : ''}</div>
           </div>
-          <button class="add" data-add="${p.id}" aria-label="Agregar ${escape(p.name)}">+</button>
+          <button class="add" data-add="${p.id}" aria-label="Agregar ${escape(p.name)}">${ADD_ICONS}</button>
         </div>`).join('')}`)
     .join('')
 }
