@@ -821,3 +821,47 @@ test('the pay bar has priority over the floating order bar', async ({ page }) =>
   // The pay bar left; the order bar is back for round 2.
   await expect(page.locator('#order-bar')).toBeVisible({ timeout: 8000 })
 })
+
+// ---------------------------------------------------------------------------
+// What the table is ordering, and quantities from the menu
+// ---------------------------------------------------------------------------
+test('the menu marks what the table is ordering, and the stepper adds and removes only your own', async ({ browser }) => {
+  const qr = await freshTable('cantidades')
+  const ana = await (await browser.newContext()).newPage()
+  const beto = await (await browser.newContext()).newPage()
+  await joinAs(ana, qr, 'Ana')
+  await joinAs(beto, qr, 'Beto')
+  const rowOf = (page) => page.locator('#menu-list .row', { hasText: 'Botella de ron' })
+
+  // Beto adds one: Ana sees it on her menu without reloading.
+  await order(beto, 'Botella de ron')
+  await expect(rowOf(ana).locator('.in-order')).toHaveText('En el pedido: 1 · Beto', { timeout: 8000 })
+  await expect(rowOf(ana).locator('.minus')).toBeHidden()
+
+  // Ana adds two: her stepper says 2, the mark counts three.
+  await rowOf(ana).locator('button[data-add]').tap()
+  await expect(rowOf(ana).locator('.count')).toHaveText('1')
+  await rowOf(ana).locator('button[data-add]').tap()
+  await expect(rowOf(ana).locator('.count')).toHaveText('2')
+  await expect(rowOf(ana).locator('.in-order')).toHaveText('En el pedido: 3 · Beto, Ana')
+
+  // Beto adds another, so the most recent unit at the table is his. Ana's "−"
+  // twice must still take only hers.
+  await order(beto, 'Botella de ron')
+  await expect(rowOf(ana).locator('.in-order')).toHaveText('En el pedido: 4 · Beto, Ana', { timeout: 8000 })
+  await rowOf(ana).locator('.minus').tap()
+  await expect(rowOf(ana).locator('.count')).toHaveText('1')
+  await rowOf(ana).locator('.minus').tap()
+  await expect(rowOf(ana).locator('.minus')).toBeHidden()
+  await expect(rowOf(ana).locator('.in-order')).toHaveText('En el pedido: 2 · Beto')
+  const units = await sql(
+    `select p.nickname from cart_items ci join participants p on p.id = ci.added_by_participant_id
+       join rounds r on r.id = ci.round_id join sessions s on s.id = r.session_id join tables t on t.id = s.table_id
+      where t.qr_token = $1 and ci.status = 'active'`, [qr])
+  expect(units.map((u) => u.nickname)).toEqual(['Beto', 'Beto'])
+
+  // Once the round is closed, the menu no longer marks it.
+  await openCart(beto)
+  await beto.locator('button[data-close="as_ordered"]').tap()
+  await expect(rowOf(ana).locator('.in-order')).toBeHidden({ timeout: 8000 })
+})

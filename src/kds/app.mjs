@@ -40,12 +40,16 @@ const ACTIVE_TICKETS = `
            'receive_count',     k.receive_count,
            -- A word, never an amount: unpaid, paid or written_off.
            'payment',           round_payment_state(k.round_id),
+           -- The same dish for the same person is one line: "2× Botella de ron · Ana".
            'items', (
              select coalesce(jsonb_agg(jsonb_build_object(
-                      'name',       i -> 'name',
-                      'quantity',   i -> 'quantity',
-                      'ordered_by', i -> 'ordered_by')), '[]'::jsonb)
-               from jsonb_array_elements(k.ticket -> 'items') i))
+                      'name',       g.name,
+                      'quantity',   g.quantity,
+                      'ordered_by', g.ordered_by) order by g.first), '[]'::jsonb)
+               from (select i -> 'name' as name, i -> 'ordered_by' as ordered_by,
+                            sum((i ->> 'quantity')::int) as quantity, min(n) as first
+                       from jsonb_array_elements(k.ticket -> 'items') with ordinality as e(i, n)
+                      group by i -> 'name', i -> 'ordered_by') g))
          order by k.first_received_at, k.round_id), '[]'::jsonb) as r
     from kitchen_tickets k
    where k.done_at is null`

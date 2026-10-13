@@ -38,7 +38,10 @@ que se comportaría como "pagar cada ronda". Completarlo, con un abono, es un ca
 
 1. **Entrar.** El comensal escanea el QR de la mesa y escribe un apodo. Si la mesa está libre,
    elige cómo van a pagar; si ya está abierta, la pantalla le dice cómo paga.
-2. **Pedir.** Todos agregan platos al mismo carrito, desde su celular. Un plato se puede
+2. **Pedir.** Todos agregan platos al mismo carrito, desde su celular. En la Carta, cada plato que
+   está en el pedido dice cuántos y quién ("En el pedido: 2 · Ana, Beto"), y el "+" se vuelve
+   "− 2 +" para pedir varios o quitar uno tuyo (nunca el de otra persona). En la cocina, el mismo
+   plato de la misma persona sale en una sola línea ("2× Botella de ron · Ana"). Un plato se puede
    compartir entre varias personas; cada una ve cuánto le toca. Apenas hay algo en el pedido,
    abajo en la Carta aparece una **barra flotante** ("Pedido · 2 platos · $X"): si estás solo, su
    botón cierra la ronda y abre el pago (o la manda a la cocina, con cuenta abierta) en un toque;
@@ -259,6 +262,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 13 oct | La mesa cambia cómo paga en los dos sentidos, también desde la hoja de pago; con cuenta abierta se paga lo propio antes de la cuenta |
 | 13 oct | La cocina ve quién debe y desde hace cuánto, con un aviso cuando pasa de 90 minutos |
 | 13 oct | Barra flotante del pedido en la Carta; la barra de pago ya no desaparece si alguien pide más mientras una ronda está en cobro |
+| 13 oct | La Carta muestra lo que pide la mesa y permite pedir cantidades; la cocina agrupa platos iguales |
 
 ## Lo que falta
 

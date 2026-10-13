@@ -205,6 +205,7 @@ function render() {
   setText($('table-mode'), TABLE_MODE[state.session.service_mode] ?? '')
 
   renderMenu()
+  renderOrderMarks()
   renderCart(round)
   renderBar(payingRound())
   renderOrderBar(round)
@@ -214,6 +215,7 @@ function render() {
 // itself in for a moment after adding. Drawn, not typed, so both sit dead centre.
 const ADD_ICONS = '<svg class="ico plus" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>' +
   '<svg class="ico tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+const MINUS_ICON = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>'
 
 // The page polls every 2 s; redrawing the menu each time would re-decode every
 // photo and make them flicker. Only redraw when something on it changed.
@@ -239,12 +241,58 @@ function renderMenu() {
             </button>` : ''}
           <div class="grow">
             <div class="name">${escape(p.name)}</div>
+            <p class="in-order" data-in-order="${p.id}" hidden></p>
             ${p.description ? `<button class="desc"><span>${escape(p.description)}</span></button>` : ''}
             <div class="sub">${money(p.unit_price)}${Number(p.tax_rate) ? ' <span class="tax">+ imp.</span>' : ''}</div>
           </div>
-          <button class="add" data-add="${p.id}" aria-label="Agregar ${escape(p.name)}">${ADD_ICONS}</button>
+          <div class="qty" data-qty="${p.id}">
+            <button class="minus" data-remove="${p.id}" aria-label="Quitar uno de ${escape(p.name)}">${MINUS_ICON}</button>
+            <span class="count" aria-live="polite"></span>
+            <button class="add" data-add="${p.id}" aria-label="Agregar ${escape(p.name)}">${ADD_ICONS}</button>
+          </div>
         </div>`).join('')}`)
     .join('')
+}
+
+/**
+ * What the table is ordering, written into the menu rows in place: the list is
+ * not redrawn, so photos are not re-decoded on every poll. Per dish: how many
+ * units are in the round being built and who added them, and how many are
+ * mine (the stepper).
+ */
+function renderOrderMarks() {
+  const draft = state.rounds.find((r) => r.status === 'draft')
+  const byProduct = new Map()
+  for (const item of draft?.items ?? []) {
+    const e = byProduct.get(item.product_id) ?? { units: 0, mine: 0, who: [] }
+    e.units += Number(item.quantity)
+    if (item.added_by === me.participantId) e.mine += Number(item.quantity)
+    const who = nameOf(item.added_by)
+    if (!e.who.includes(who)) e.who.push(who)
+    byProduct.set(item.product_id, e)
+  }
+  for (const mark of document.querySelectorAll('#menu-list [data-in-order]')) {
+    const e = byProduct.get(mark.dataset.inOrder)
+    const text = e ? `En el pedido: ${e.units} · ${e.who.join(', ')}` : ''
+    if (mark.textContent !== text) mark.textContent = text
+    mark.hidden = !e
+  }
+  for (const qty of document.querySelectorAll('#menu-list [data-qty]')) {
+    const mine = byProduct.get(qty.dataset.qty)?.mine ?? 0
+    qty.classList.toggle('has', mine > 0)
+    setText(qty.querySelector('.count'), mine > 0 ? String(mine) : '')
+  }
+}
+
+/** "−" on the menu: my most recently added unit of this dish, never someone else's. */
+async function removeOne(productId) {
+  const draft = state.rounds.find((r) => r.status === 'draft')
+  const mine = (draft?.items ?? []).filter((i) => i.product_id === productId && i.added_by === me.participantId)
+  const last = mine.at(-1)
+  if (!last) return
+  const r = await api('/api/cart/void', { cart_item_id: last.id, participant_id: me.participantId })
+  if (r.status !== 'voided') return toast(explain(r), true)
+  await refresh()
 }
 
 // Cart rows already shown: only new ones animate in.
@@ -624,6 +672,8 @@ document.addEventListener('click', async (e) => {
       toast('Agregado')
       await refresh()
     }
+
+    if (btn.dataset.remove) await removeOne(btn.dataset.remove)
 
     if (btn.dataset.void) {
       const r = await api('/api/cart/void', {

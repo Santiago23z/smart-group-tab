@@ -131,7 +131,7 @@ async function tableState(sessionId, participantId) {
                   'total', round_total(r.id), 'outstanding', round_outstanding(r.id),
                   'items', (
                     select coalesce(jsonb_agg(jsonb_build_object(
-                             'id', ci.id, 'name', pr.name, 'quantity', ci.quantity,
+                             'id', ci.id, 'product_id', ci.product_id, 'name', pr.name, 'quantity', ci.quantity,
                              'line_total', ci.line_total,
                              'added_by', ci.added_by_participant_id,
                              'shares', (

@@ -597,3 +597,24 @@ test('someone who has owed on a tab past the threshold shows in the alerts, and 
   state = await (await kds.staff('/kds/api/state')).json()
   assert.ok(state.alerts.tables.find((a) => a.session_id === ana.session_id).acknowledged_at)
 })
+
+test('a ticket shows the same dish for the same person as one line', async (t) => {
+  const kds = await startKds()
+  const db = await pool.connect()
+  t.after(async () => { db.release(); await kds.close() })
+  const venue = await createVenue(pool, { serviceMode: 'open_tab', products: [{ price: 120_000 }] })
+  const ana = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Ana' })
+  const beto = await joinSession(pool, { qrToken: venue.qrToken, nickname: 'Beto' })
+  for (const p of [ana, ana, beto]) {
+    await addItem(pool, { sessionId: ana.session_id, participantId: p.participant_id, productId: venue.menu[0].id })
+  }
+  const round = await closeRound(pool, { sessionId: ana.session_id })
+  await pool.query(`update dispatches set next_attempt_at = now() + interval '1 hour'
+                     where status = 'pending' and round_id <> $1`, [round.round_id])
+  await drain(db, { urls: kds.urls, token: DISPATCH })
+
+  const state = await (await kds.staff('/kds/api/state')).json()
+  const ticket = state.tickets.find((x) => x.round_id === round.round_id)
+  assert.deepEqual(ticket.items.map((i) => [i.quantity, i.name, i.ordered_by]),
+    [[2, 'item-0', 'Ana'], [1, 'item-0', 'Beto']])
+})

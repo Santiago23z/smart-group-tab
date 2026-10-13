@@ -484,3 +484,23 @@ button.choice:active { transform: scale(.985); }
 
 /* Floating order bar: the same pill as the pay bar, which always has priority. */
 .order-bar #order-action { min-width: 9.5rem; }
+
+/* What the table is ordering: under the dish name, in the accent. */
+#menu-list .in-order {
+  margin: .3rem 0 0; font-size: .8rem; font-weight: 700; color: var(--accent);
+  animation: fade-up .35s var(--ease-out);
+}
+/* Quantity stepper: a plain "+" until you have one, then "− N +". */
+.qty { display: flex; align-items: center; gap: .3rem; flex: none; }
+.qty .minus, .qty .count { display: none; }
+.qty.has .minus { display: block; animation: pop .35s var(--spring); }
+.qty.has .count { display: block; }
+.qty .minus {
+  position: relative; width: 2.5rem; height: 2.5rem; padding: 0; flex: none;
+  background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line);
+}
+.qty .minus .ico {
+  position: absolute; inset: 0; margin: auto; width: 1.2rem; height: 1.2rem;
+  fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round;
+}
+.qty .count { min-width: 1.5rem; text-align: center; font-weight: 800; font-size: 1.05rem; }
