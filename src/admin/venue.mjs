@@ -118,7 +118,9 @@ const newQrToken = () => randomBytes(16).toString('hex')
  * the spreadsheet are hidden, not deleted: old bills still point at them.
  */
 export async function loadVenue(pool, { name, mode, tables, barSeats = 0, menu }) {
-  if (!MODES.includes(mode)) {
+  // No mode: a new venue starts paying before the kitchen; an existing one keeps
+  // whatever its kitchen chose. A given mode is still checked.
+  if (mode != null && !MODES.includes(mode)) {
     throw new Error(`El modo "${mode}" no existe: usá pay_before_order, open_tab o hybrid.`)
   }
   for (const [label, n] of [['mesas', tables], ['barra', barSeats]]) {
@@ -135,10 +137,11 @@ export async function loadVenue(pool, { name, mode, tables, barSeats = 0, menu }
     let venueId = (await db.query(
       `select id from venues where name = $1 order by created_at limit 1 for update`, [name])).rows[0]?.id
     if (venueId) {
-      await db.query(`update venues set default_service_mode = $2::service_mode where id = $1`, [venueId, mode])
+      if (mode != null) await db.query(`update venues set default_service_mode = $2::service_mode where id = $1`, [venueId, mode])
     } else {
       venueId = (await db.query(
-        `insert into venues (name, default_service_mode) values ($1, $2::service_mode) returning id`, [name, mode])).rows[0].id
+        `insert into venues (name, default_service_mode) values ($1, $2::service_mode) returning id`,
+        [name, mode ?? 'pay_before_order'])).rows[0].id
     }
 
     for (const label of labels) {

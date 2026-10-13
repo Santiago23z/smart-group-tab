@@ -429,8 +429,11 @@ async function getJson(path) {
   return res.json()
 }
 
+let venueList = []
+
 async function openMenu() {
   const { venues } = await getJson('/kds/api/venues')
+  venueList = venues
   if (!venues.some((v) => v.id === venueId)) venueId = venues[0]?.id ?? null
   // One venue: nothing to choose. Several: say which one, every time.
   const select = $('menu-venue')
@@ -438,13 +441,57 @@ async function openMenu() {
   select.replaceChildren(...venues.map((v) => el('option', { value: v.id, ...(v.id === venueId ? { selected: '' } : {}) }, v.name)))
   $('menu-preview').hidden = true
   $('menu-dialog').showModal()
+  renderMode()
   await renderMenu()
+}
+
+// ---------------------------------------------------------------------------
+// Cómo se cobra. Hybrid is shown only as a venue's current mode: nothing lets a
+// table leave a prepaid balance yet, so it is not offered as a choice.
+// ---------------------------------------------------------------------------
+const MODES = {
+  pay_before_order: ['Pagar antes', 'La cocina recibe cada ronda cuando está pagada completa.'],
+  open_tab: ['Cuenta abierta', 'La ronda va directo a la cocina; se paga al final, al pedir la cuenta.'],
+}
+
+function renderMode() {
+  const venue = venueList.find((v) => v.id === venueId)
+  $('mode-box').hidden = !venue
+  if (!venue) return
+  // replaceChildren, unlike el(), would print a false as text.
+  $('mode-choices').replaceChildren(...[
+    ...Object.entries(MODES).map(([mode, [label, line]]) => el('button', {
+      type: 'button', class: `mode${venue.mode === mode ? ' current' : ''}`, 'data-mode': mode,
+      'aria-pressed': String(venue.mode === mode),
+      onclick: () => venue.mode !== mode && setMode(venue, mode),
+    }, el('strong', {}, label), el('span', {}, line))),
+    venue.mode === 'hybrid' && el('button', { type: 'button', class: 'mode current', disabled: '', 'aria-pressed': 'true' },
+      el('strong', {}, 'Híbrido'), el('span', {}, 'La primera ronda se paga antes; las siguientes, con el saldo de la mesa.')),
+  ].filter(Boolean))
+}
+
+async function setMode(venue, mode) {
+  const ok = await confirmAction({
+    title: `¿Cobrar con «${MODES[mode][0]}» en ${venue.name}?`,
+    body: `${MODES[mode][1]} Aplica a las mesas que se abran desde ahora; las que ya están sentadas siguen como empezaron.`,
+    yes: 'Sí, cambiar',
+  })
+  if (!ok) return
+  const r = await act(`/kds/api/venues/${venue.id}/service-mode`, { mode })
+  if (r.status === 'updated' || r.status === 'unchanged') {
+    venue.mode = mode
+    notice(`Listo: las mesas nuevas se cobran con «${MODES[mode][0]}».`)
+  } else {
+    notice(r.reason === 'invalid_mode' ? 'Ese modo no se puede elegir desde aquí.' : `No se pudo (${r.reason}).`)
+  }
+  renderMode()
 }
 
 $('menu-venue').addEventListener('change', async (e) => {
   venueId = e.target.value
   localStorage.setItem(VENUE_KEY, venueId)
   $('menu-preview').hidden = true
+  renderMode()
   await renderMenu()
 })
 

@@ -575,3 +575,34 @@ test('a description uploaded from the spreadsheet shows in the Carta panel', asy
   const products = (await (await kds.staff(`/kds/api/venues/${venue.venueId}/menu`)).json()).products
   assert.equal(products.find((p) => p.name === 'Picada').description, 'Chorizo, morcilla y arepa')
 })
+
+test('staff choose how a venue collects from the kitchen screen', async (t) => {
+  const kds = await startKds()
+  t.after(() => kds.close())
+  const venue = await createVenue(pool)
+  const post = (id, body, token = true) => (token ? kds.staff : (p, i) => fetch(`${kds.base}${p}`, i))(
+    `/kds/api/venues/${id}/service-mode`,
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  const modeOf = async () => (await pool.query(`select default_service_mode::text as m from venues where id = $1`, [venue.venueId])).rows[0].m
+
+  await t.test('the venue list carries each venue\'s mode', async () => {
+    const { venues } = await (await kds.staff('/kds/api/venues')).json()
+    assert.equal(venues.find((v) => v.id === venue.venueId).mode, 'pay_before_order')
+  })
+
+  await t.test('switching answers 200 and sticks', async () => {
+    const res = await post(venue.venueId, { mode: 'open_tab' })
+    assert.equal(res.status, 200)
+    assert.equal((await res.json()).status, 'updated')
+    assert.equal(await modeOf(), 'open_tab')
+  })
+
+  await t.test('hybrid is 409, an unknown venue 404, no token 401 — and nothing changes', async () => {
+    const hybrid = await post(venue.venueId, { mode: 'hybrid' })
+    assert.equal(hybrid.status, 409)
+    assert.equal((await hybrid.json()).reason, 'invalid_mode')
+    assert.equal((await post('00000000-0000-4000-8000-0000000000ff', { mode: 'open_tab' })).status, 404)
+    assert.equal((await post(venue.venueId, { mode: 'pay_before_order' }, false)).status, 401)
+    assert.equal(await modeOf(), 'open_tab')
+  })
+})

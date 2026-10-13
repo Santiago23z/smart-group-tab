@@ -5,7 +5,9 @@
 //   npm run venue:qr   -- --name "La Terraza" [--base https://app.ronda.co] [--out qr]
 //
 // --mode: pay_before_order (pagar antes de pedir), open_tab (cuenta abierta),
-//         hybrid (híbrido). Loading again updates the menu and keeps every QR.
+//         hybrid (híbrido). Optional: a new bar starts in pay_before_order, and
+//         loading an existing one without --mode keeps the mode its kitchen chose.
+//         Loading again updates the menu and keeps every QR.
 
 import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { hostname, networkInterfaces } from 'node:os'
@@ -30,7 +32,7 @@ async function load() {
   const menu = parseMenu(parseCsv(await readFile(args.menu, 'utf8')))
   const { venueId, summary } = await loadVenue(pool, {
     name: args.name,
-    mode: args.mode ?? 'pay_before_order',
+    mode: args.mode ?? null,
     tables: Number(args.tables ?? 0),
     barSeats: Number(args.bar ?? 0),
     menu,
