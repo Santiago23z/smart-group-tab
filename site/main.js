@@ -15,18 +15,16 @@ const reveal = new IntersectionObserver((entries) => {
 }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
 for (const el of document.querySelectorAll('.reveal')) reveal.observe(el);
 
-// How it works: the step crossing the middle of the screen picks the phone's screen.
-const device = document.querySelector('.sticky-device');
-const steps = [...document.querySelectorAll('.step')];
-const stepWatch = new IntersectionObserver((entries) => {
-  for (const e of entries) {
-    if (!e.isIntersecting) continue;
-    for (const s of steps) s.classList.toggle('on', s === e.target);
-    if (device) device.dataset.step = e.target.dataset.step;
-  }
-}, { rootMargin: '-45% 0px -45% 0px' });
-for (const s of steps) stepWatch.observe(s);
-steps[0]?.classList.add('on');
+// How it works: the section is as tall as the row is wide, so the row slides
+// one pixel left for every pixel scrolled. Only when CSS drives the slide.
+const how = document.querySelector('.how');
+const pin = how.querySelector('.how-pin');
+const track = how.querySelector('.how-track');
+if (CSS.supports('animation-timeline: view()') && matchMedia('(prefers-reduced-motion: no-preference) and (min-height: 600px)').matches) {
+  const size = () => how.style.setProperty('--how-h', `${pin.offsetHeight + track.offsetWidth - pin.clientWidth}px`);
+  new ResizeObserver(size).observe(track);
+  new ResizeObserver(size).observe(pin);
+}
 
 // Phone menu.
 const root = document.documentElement;

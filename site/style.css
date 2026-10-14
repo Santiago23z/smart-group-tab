@@ -175,23 +175,39 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 .d-side { left: calc(50% + var(--wf) / 2 - var(--ws) * .45); top: 26%; rotate: 6deg; z-index: 1; }
 
 /* How it works: the phone holds still, the steps go by. ------------------- */
-.how { background: linear-gradient(var(--bg), var(--bg-2) 30%, var(--bg-2) 70%, var(--bg)); }
-.how-grid { max-width: 72rem; margin: 0 auto; display: grid; grid-template-columns: .85fr 1.15fr; gap: clamp(2rem, 6vw, 6rem); }
-.how-phone { position: relative; }
-.sticky-device { position: sticky; top: 14vh; margin-inline: auto; width: min(20rem, 30vw); }
-.sticky-device .screen { aspect-ratio: 780 / 1328; }
-.step-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transform: scale(1.03);
-  transition: opacity .7s var(--ease-out), transform .9s var(--ease-out); }
-.sticky-device[data-step="1"] [data-for="1"],
-.sticky-device[data-step="2"] [data-for="2"],
-.sticky-device[data-step="3"] [data-for="3"] { opacity: 1; transform: none; }
-.steps { list-style: none; margin: 0; padding: 0; }
-.step { min-height: 72vh; display: flex; flex-direction: column; justify-content: center; gap: 1rem; opacity: .32;
-  transition: opacity .6s var(--ease-out); }
-.step.on { opacity: 1; }
+.how { padding: 0; background: linear-gradient(var(--bg), var(--bg-2) 25%, var(--bg-2) 75%, var(--bg)); }
+.how-pin {
+  container-type: inline-size; display: flex; flex-direction: column; justify-content: safe center;
+  gap: clamp(1.25rem, 3vh, 2.25rem); padding: 6rem 0 2rem;
+}
+.how .section-head { width: min(72rem, 100% - 2 * var(--pad)); margin: 0 auto; }
+.how .section-head h2 { font-size: clamp(2rem, min(4.2vw, 7vh), 3.8rem); }
+/* Without scroll timelines (or with reduced motion) the row is a plain swipeable carousel. */
+.how-scroll { overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.how-scroll::-webkit-scrollbar { display: none; }
+.how-track {
+  display: flex; gap: clamp(1rem, 2vw, 1.5rem); width: max-content; margin: 0; list-style: none;
+  padding: .5rem max(var(--pad), (100cqw - 72rem) / 2);
+}
+/* Height left over after the nav, the heading and the progress bar. */
+.h-card { flex: none; width: min(46rem, 84cqw); height: clamp(20rem, 100svh - 23rem, 32rem); scroll-snap-align: center; }
+.h-card.wide-card { width: min(62rem, 88cqw); }
+.h-core {
+  height: 100%; display: grid; grid-template-columns: 1fr auto; gap: clamp(1.5rem, 3vw, 3rem);
+  padding: clamp(1.6rem, 3vw, 2.6rem) clamp(1.6rem, 3vw, 2.6rem) 0; overflow: hidden;
+}
+.wide-card .h-core { grid-template-columns: minmax(14rem, .8fr) 1.6fr; }
+.h-copy { display: flex; flex-direction: column; gap: 1rem; padding-bottom: clamp(1.6rem, 3vw, 2.6rem); }
+.h-copy h3 { font-size: clamp(1.6rem, 2.6vw, 2.4rem); margin-top: auto; }
+.h-copy p { color: var(--muted); font-size: 1.05rem; max-width: 26rem; }
+/* The phone rises from the bottom edge of the card, cut off like a peek. */
+.h-phone { width: clamp(11rem, 17vw, 15rem); align-self: start; }
+.h-shot { align-self: stretch; margin-bottom: clamp(1.6rem, 3vw, 2.6rem); border-radius: 1.1rem; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--line-2), 0 30px 60px -30px rgba(0, 0, 0, .9); }
+.h-shot img { width: 100%; height: 100%; object-fit: cover; object-position: left top; }
+.how-progress { display: none; width: min(72rem, 100% - 2 * var(--pad)); height: 2px; margin: 0 auto; border-radius: 2px; background: var(--line); overflow: hidden; }
+.how-progress span { display: block; height: 100%; background: var(--accent); transform-origin: left; }
 .step-n { font-family: var(--serif); font-size: 1rem; color: var(--accent); letter-spacing: .1em; }
-.step h3 { font-size: clamp(1.8rem, 3vw, 2.6rem); }
-.step p { color: var(--muted); font-size: 1.12rem; max-width: 30rem; }
 
 /* Kitchen: a wide screen, then an asymmetric bento. ------------------------ */
 .bezel {
@@ -267,6 +283,21 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
     .cta .ring { animation: ring-drift linear both; animation-timeline: view(); animation-range: cover; }
   }
 }
+@supports (animation-timeline: view()) {
+  /* Very short screens can't hold the heading and a card at once: they keep the swipe. */
+  @media (prefers-reduced-motion: no-preference) and (min-height: 600px) {
+    /* The section is as tall as the row is wide, so one step down moves the row one step left. */
+    .how { view-timeline: --how block; height: var(--how-h, 320vh); }
+    .how-pin { position: sticky; top: 0; height: 100svh; overflow: clip; }
+    .how-scroll { overflow: visible; scroll-snap-type: none; }
+    .how-track, .how-progress span { animation: linear both; animation-timeline: --how; animation-range: contain 0% contain 100%; }
+    .how-track { animation-name: how-slide; }
+    .how-progress { display: block; }
+    .how-progress span { animation-name: how-bar; }
+  }
+}
+@keyframes how-slide { to { translate: calc(-100% + 100cqw) 0; } }
+@keyframes how-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes drift { from { translate: 0 calc(var(--depth) * 1px); } to { translate: 0 calc(var(--depth) * -1px); } }
 @keyframes ring-drift { to { translate: 0 30vh; rotate: 25deg; } }
 @keyframes ring-drift-2 { to { translate: -6vw 48vh; rotate: -18deg; } }
@@ -275,7 +306,6 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .js .reveal { transform: none; filter: none; transition: opacity .4s var(--ease); }
-  .step-img { transition: opacity .3s var(--ease); transform: none; }
   .menu li { transform: none; }
 }
 
@@ -296,12 +326,22 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
   html.menu-open .burger span:last-child { transform: rotate(-45deg); }
 
   .hero { padding-top: 7rem; }
-  .hero-grid, .how-grid, .pay-grid { grid-template-columns: 1fr; }
+  .hero-grid, .pay-grid { grid-template-columns: 1fr; }
   .cascade { padding-block: 1rem 0; }
   .d-back, .d-side { display: none; }
   .cascade .device { --wf: min(17rem, 72vw); }
-  .how-phone { display: none; }
-  .step { min-height: auto; opacity: 1; padding: 2.2rem 0; border-top: 1px solid var(--line); }
+  .how-pin { padding-top: 5.25rem; }
+  .how .section-head .eyebrow { margin-bottom: 1rem; }
+  .how .section-head h2 { font-size: 2rem; }
+  .h-card, .h-card.wide-card { width: 84cqw; height: clamp(17.5rem, 100svh - 18rem, 36rem); }
+  .h-core, .wide-card .h-core { padding: 1.4rem 1.4rem 0; }
+  .h-copy { gap: .6rem; }
+  .h-copy h3 { font-size: 1.45rem; }
+  .h-copy p { font-size: .95rem; line-height: 1.45; }
+  .h-core, .wide-card .h-core { grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 1.1rem; }
+  .h-copy { padding-bottom: 0; }
+  .h-copy h3 { margin-top: .4rem; }
+  .h-phone { justify-self: center; width: min(13rem, 58cqw); }
   .bento { grid-template-columns: 1fr; }
   .b-7, .b-5 { grid-column: auto; }
   .tilt-a, .tilt-b { rotate: none; margin: 0; }
@@ -310,3 +350,8 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 
 /* Content sits above the decorative rings. */
 .cta > :not(.rings) { position: relative; }
+
+/* Short screens swipe the steps by hand; cards take their natural height. */
+@media (max-height: 599px) {
+  .h-card, .h-card.wide-card { height: auto; }
+}

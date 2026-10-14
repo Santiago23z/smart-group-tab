@@ -77,41 +77,60 @@
   </div>
 </section>
 
-<!-- How it works: the phone stays, the steps scroll ---------------------- -->
+<!-- How it works: the section holds still while the steps slide past ------ -->
 <section class="how" id="como">
-  <div class="section-head">
-    <p class="eyebrow reveal">Cómo funciona</p>
-    <h2 class="reveal" style="--i:1">Del QR a la cocina, sin que nadie levante la mano.</h2>
-  </div>
-
-  <div class="how-grid">
-    <div class="how-phone">
-      <figure class="device sticky-device" data-step="1">
-        <div class="screen">
-          <img class="step-img" data-for="1" src="img/phone-join.jpg" alt="" width="780" height="1328">
-          <img class="step-img" data-for="2" src="img/phone-menu.jpg" alt="" width="780" height="1328" loading="lazy">
-          <img class="step-img" data-for="3" src="img/phone-pay.jpg" alt="" width="780" height="1328" loading="lazy">
-        </div>
-      </figure>
+  <div class="how-pin">
+    <div class="section-head">
+      <p class="eyebrow reveal">Cómo funciona</p>
+      <h2 class="reveal" style="--i:1">Del QR a la cocina, sin que nadie levante la mano.</h2>
     </div>
 
-    <ol class="steps">
-      <li class="step" data-step="1">
-        <span class="step-n">01</span>
-        <h3>Escanean y eligen cómo pagar.</h3>
-        <p>Sin descargar nada ni crear cuentas: el QR de la mesa y un apodo. El primero que llega elige si pagan cada ronda o abren cuenta y pagan al final. Pueden cambiar cuando quieran.</p>
-      </li>
-      <li class="step" data-step="2">
-        <span class="step-n">02</span>
-        <h3>Piden juntos, cada uno desde su celular.</h3>
-        <p>Todos ven en vivo lo que pide la mesa. Pueden pedir varias unidades, compartir un plato entre varios y mandar el pedido a la cocina con un toque.</p>
-      </li>
-      <li class="step" data-step="3">
-        <span class="step-n">03</span>
-        <h3>Cada quien paga lo suyo.</h3>
-        <p>Con Nequi, PSE o tarjeta a través de Wompi, o al mesero en efectivo o datáfono. Mientras alguien paga, su parte queda apartada: nadie paga dos veces lo mismo.</p>
-      </li>
-    </ol>
+    <div class="how-scroll">
+      <ol class="how-track">
+        <li class="h-card bezel">
+          <div class="bezel-core h-core">
+            <div class="h-copy">
+              <span class="step-n">01</span>
+              <h3>Escanean y eligen cómo pagar.</h3>
+              <p>Sin descargar nada ni crear cuentas: el QR de la mesa y un apodo. El primero que llega elige si pagan cada ronda o abren cuenta y pagan al final. Pueden cambiar cuando quieran.</p>
+            </div>
+            <figure class="device h-phone"><div class="screen"><img src="img/phone-join.jpg" alt="Al entrar a la mesa: ¿cómo van a pagar?" width="780" height="1328" loading="lazy"></div></figure>
+          </div>
+        </li>
+        <li class="h-card bezel">
+          <div class="bezel-core h-core">
+            <div class="h-copy">
+              <span class="step-n">02</span>
+              <h3>Piden juntos, cada uno desde su celular.</h3>
+              <p>Todos ven en vivo lo que pide la mesa. Pueden pedir varias unidades, compartir un plato entre varios y mandar el pedido a la cocina con un toque.</p>
+            </div>
+            <figure class="device h-phone"><div class="screen"><img src="img/phone-menu.jpg" alt="La carta: cada plato dice quién lo está pidiendo" width="780" height="1328" loading="lazy"></div></figure>
+          </div>
+        </li>
+        <li class="h-card bezel">
+          <div class="bezel-core h-core">
+            <div class="h-copy">
+              <span class="step-n">03</span>
+              <h3>Cada quien paga lo suyo.</h3>
+              <p>Con Nequi, PSE o tarjeta a través de Wompi, o al mesero en efectivo o datáfono. Mientras alguien paga, su parte queda apartada: nadie paga dos veces lo mismo.</p>
+            </div>
+            <figure class="device h-phone"><div class="screen"><img src="img/phone-pay.jpg" alt="Tu parte: pagar ahora, o seguir pidiendo y pagar al final" width="780" height="1328" loading="lazy"></div></figure>
+          </div>
+        </li>
+        <li class="h-card bezel wide-card">
+          <div class="bezel-core h-core">
+            <div class="h-copy">
+              <span class="step-n">04</span>
+              <h3>La cocina lo recibe sola.</h3>
+              <p>La ronda aparece en la pantalla de la cocina apenas está lista para preparar, y dice si ya está pagada o se cobra al final.</p>
+            </div>
+            <div class="h-shot"><img src="img/kitchen.jpg" alt="La pantalla de la cocina con los pedidos de la noche" width="2000" height="1250" loading="lazy"></div>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="how-progress" aria-hidden="true"><span></span></div>
   </div>
 </section>
 
