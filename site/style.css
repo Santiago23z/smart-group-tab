@@ -285,11 +285,14 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 }
 @supports (animation-timeline: view()) {
   /* Very short screens can't hold the heading and a card at once: they keep the swipe. */
-  @media (prefers-reduced-motion: no-preference) and (min-height: 600px) {
+  @media (prefers-reduced-motion: no-preference) and (min-height: 480px) {
     /* The section is as tall as the row is wide, so one step down moves the row one step left. */
     .how { view-timeline: --how block; height: var(--how-h, 320vh); }
     .how-pin { position: sticky; top: 0; height: 100svh; overflow: clip; }
-    .how-scroll { overflow: visible; scroll-snap-type: none; }
+    .how-scroll { overflow: visible; scroll-snap-type: none; flex: 1 1 0; min-height: 0; }
+    /* Cards take whatever height the screen leaves after the heading. */
+    .how-track { height: 100%; align-items: center; }
+    .how .how-track .h-card { height: 100%; max-height: 32rem; }
     .how-track, .how-progress span { animation: linear both; animation-timeline: --how; animation-range: contain 0% contain 100%; }
     .how-track { animation-name: how-slide; }
     .how-progress { display: block; }
@@ -352,6 +355,15 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 .cta > :not(.rings) { position: relative; }
 
 /* Short screens swipe the steps by hand; cards take their natural height. */
-@media (max-height: 599px) {
+@media (max-height: 479px) {
   .h-card, .h-card.wide-card { height: auto; }
+}
+/* Short screens (laptops with the browser bar, small phones): a tighter heading and card. */
+@media (max-height: 760px) {
+  .how .section-head .eyebrow { display: none; }
+  .how-pin { padding-top: 5.25rem; gap: 1rem; }
+  .h-core, .wide-card .h-core { padding: 1.4rem 1.4rem 0; }
+  .h-copy { gap: .6rem; padding-bottom: 1.4rem; }
+  .h-copy h3 { font-size: clamp(1.35rem, 2.2vw, 1.9rem); }
+  .h-copy p { font-size: .95rem; line-height: 1.45; }
 }
