@@ -134,7 +134,7 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 }
 .hero-grid {
   position: relative; max-width: 76rem; width: 100%; margin: 0 auto;
-  display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(2rem, 5vw, 5rem); align-items: center;
+  display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 4vw, 4rem); align-items: center;
 }
 .hero-copy h1 { margin-bottom: 1.6rem; }
 .cta-row { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2.4rem; }
@@ -150,21 +150,29 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 .rings.small .ring.r2 { width: 30vmax; right: -8vmax; top: 10%; }
 .rings.small .ring.r3 { width: 26vmax; left: 40%; bottom: -16vmax; }
 
-/* Devices: a double bezel, like glass sitting in a machined tray. */
+/* Devices: a thick double bezel, like a phone held up to the glass. */
 .device {
-  margin: 0; padding: .45rem; border-radius: 2.9rem; width: min(19rem, 36vw);
-  background: linear-gradient(160deg, rgba(255, 236, 214, .1), rgba(255, 236, 214, .02));
-  box-shadow: inset 0 0 0 1px var(--line-2), 0 50px 90px -40px rgba(0, 0, 0, .95), 0 0 0 1px rgba(0, 0, 0, .4);
+  --bz: .75rem; --rad: 3.1rem;
+  margin: 0; padding: var(--bz); border-radius: var(--rad); width: min(19rem, 36vw);
+  background: linear-gradient(160deg, #2b2420, #15110f 55%, #1d1815);
+  box-shadow: inset 0 0 0 1px var(--line-2), inset 0 1px 0 rgba(255, 236, 214, .12),
+              0 50px 90px -40px rgba(0, 0, 0, .95), 0 0 0 1px rgba(0, 0, 0, .5);
 }
 .device .screen {
-  position: relative; border-radius: calc(2.9rem - .45rem); overflow: hidden; background: #110d0b;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .14);
+  position: relative; border-radius: calc(var(--rad) - var(--bz)); overflow: hidden; background: #110d0b;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .6);
 }
-.cascade { position: relative; height: min(46rem, 88vh); }
-.cascade .device { position: absolute; }
-.d-back { left: 0; top: 6%; rotate: -7deg; width: min(15rem, 26vw); opacity: .82; }
-.d-front { left: 24%; top: 0; z-index: 2; }
-.d-side { right: -2%; top: 18%; rotate: 6deg; width: min(15.5rem, 27vw); z-index: 1; }
+/* Three phones centred in their half: the front one in the middle, the other
+   two tucked behind it on each side. Sized against the column, never past it. */
+.cascade {
+  container-type: inline-size; position: relative; display: flex; justify-content: center;
+  padding-block: 2.5rem 3.5rem;
+}
+.cascade .device { --wf: min(18rem, 48cqi); --ws: min(14.5rem, 38cqi); }
+.d-front { position: relative; z-index: 2; width: var(--wf); }
+.d-back, .d-side { position: absolute; top: 18%; width: var(--ws); --bz: .6rem; --rad: 2.6rem; }
+.d-back { left: calc(50% - var(--wf) / 2 - var(--ws) * .55); rotate: -7deg; opacity: .82; }
+.d-side { left: calc(50% + var(--wf) / 2 - var(--ws) * .45); top: 26%; rotate: 6deg; z-index: 1; }
 
 /* How it works: the phone holds still, the steps go by. ------------------- */
 .how { background: linear-gradient(var(--bg), var(--bg-2) 30%, var(--bg-2) 70%, var(--bg)); }
@@ -289,10 +297,9 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 
   .hero { padding-top: 7rem; }
   .hero-grid, .how-grid, .pay-grid { grid-template-columns: 1fr; }
-  .cascade { height: auto; display: flex; justify-content: center; padding-top: 1rem; }
-  .cascade .device { position: relative; }
+  .cascade { padding-block: 1rem 0; }
   .d-back, .d-side { display: none; }
-  .d-front { left: auto; width: min(17rem, 72vw); }
+  .cascade .device { --wf: min(17rem, 72vw); }
   .how-phone { display: none; }
   .step { min-height: auto; opacity: 1; padding: 2.2rem 0; border-top: 1px solid var(--line); }
   .bento { grid-template-columns: 1fr; }
