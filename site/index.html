@@ -22,6 +22,7 @@
     <ul class="nav-links">
       <li><a href="#como">Cómo funciona</a></li>
       <li><a href="#cocina">Tu cocina</a></li>
+      <li><a href="#carta">Tu carta</a></li>
       <li><a href="#pagos">Pagos</a></li>
     </ul>
     <a class="btn btn-small" href="#contacto">
@@ -38,8 +39,9 @@
   <ul>
     <li style="--i:0"><a href="#como">Cómo funciona</a></li>
     <li style="--i:1"><a href="#cocina">Tu cocina</a></li>
-    <li style="--i:2"><a href="#pagos">Pagos</a></li>
-    <li style="--i:3"><a href="#contacto">Agenda una demo</a></li>
+    <li style="--i:2"><a href="#carta">Tu carta</a></li>
+    <li style="--i:3"><a href="#pagos">Pagos</a></li>
+    <li style="--i:4"><a href="#contacto">Agenda una demo</a></li>
   </ul>
 </div>
 
@@ -176,6 +178,81 @@
         <p class="ticket-mock" aria-hidden="true"><b>2×</b> Michelada <span>· Pipe</span></p>
         <h3>El pedido llega solo, una vez.</h3>
         <p>Sin anotar ni dictar: la ronda aparece en la cocina apenas está lista para preparar. El mismo plato de la misma persona, en una sola línea.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- Your menu: from the spreadsheet you already have ---------------------- -->
+<section class="carta" id="carta">
+  <div class="carta-grid">
+    <div class="carta-copy">
+      <p class="eyebrow reveal">Tu carta</p>
+      <h2 class="reveal" style="--i:1">Tu carta sale de la hoja de cálculo <em>que ya tienes.</em></h2>
+      <p class="lede reveal" style="--i:2">Nada de digitar plato por plato. La subes desde la pantalla de la cocina y queda en el celular de cada mesa.</p>
+      <ol class="carta-steps">
+        <li class="reveal" style="--i:3">
+          <span class="step-n">01</span>
+          <div><h3>Llénala en Excel o Google Sheets.</h3>
+          <p>Una fila por plato: categoría, nombre, precio, impuesto y, si quieres, una descripción corta. Te damos una plantilla de ejemplo. La guardas como CSV.</p></div>
+        </li>
+        <li class="reveal" style="--i:4">
+          <span class="step-n">02</span>
+          <div><h3>Súbela desde la cocina.</h3>
+          <p>Antes de cambiar nada, Ronda te muestra qué platos entran, cuáles cambian y cuáles se ocultan. Si algo está mal, te dice en qué fila.</p></div>
+        </li>
+        <li class="reveal" style="--i:5">
+          <span class="step-n">03</span>
+          <div><h3>Revisa y aplica.</h3>
+          <p>Con un toque queda en la carta de todas las mesas. ¿Cambió un precio? Editas la hoja y la vuelves a subir.</p></div>
+        </li>
+      </ol>
+    </div>
+
+    <!-- The sheet, and what Ronda makes of it. -->
+    <div class="carta-visual" aria-hidden="true">
+      <div class="bezel sheet reveal" data-depth="20">
+        <div class="bezel-core sheet-core">
+          <div class="sheet-bar"><span></span><span></span><span></span><b>carta.csv</b></div>
+          <table>
+            <thead><tr><th>categoría</th><th>nombre</th><th>precio</th><th>impuesto</th><th>descripción</th></tr></thead>
+            <tbody>
+              <tr><td>Para compartir</td><td>Picada para compartir</td><td>32000</td><td>8</td><td>Chorizo, morcilla, chicharrón…</td></tr>
+              <tr><td>Fuertes</td><td>Hamburguesa de la casa</td><td>28000</td><td>8</td><td>Carne de res de 200 g…</td></tr>
+              <tr><td>Bebidas</td><td>Cerveza artesanal</td><td>12000</td><td>8</td><td>Roja de la casa…</td></tr>
+              <tr><td>Bebidas</td><td>Michelada</td><td>15000</td><td>8</td><td>Cerveza con limón, sal…</td></tr>
+              <tr><td>Bebidas</td><td>Limonada de coco</td><td>14000</td><td>8</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bezel preview reveal" style="--i:2" data-depth="70">
+        <div class="bezel-core preview-core">
+          <p class="preview-title">Vista previa</p>
+          <p class="preview-line">5 nuevos · 0 actualizados · 0 se ocultan</p>
+          <div class="preview-actions"><span class="ghost">Cancelar</span><span class="apply">Aplicar</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="carta-extras">
+    <article class="bezel reveal">
+      <div class="bezel-core card">
+        <h3>Agotado, con un toque.</h3>
+        <p>Si algo se acaba en plena noche, lo marcas agotado y sale de la carta. Volver a subir la hoja no lo trae de vuelta.</p>
+      </div>
+    </article>
+    <article class="bezel reveal" style="--i:1">
+      <div class="bezel-core card">
+        <h3>Una foto por plato.</h3>
+        <p>La tomas con el celular y la subes desde la misma pantalla. Ronda la ajusta sola para que cargue rápido.</p>
+      </div>
+    </article>
+    <article class="bezel reveal" style="--i:2">
+      <div class="bezel-core card">
+        <h3>Lo pedido no cambia.</h3>
+        <p>Si subes un precio, las cuentas abiertas siguen con el precio con que se pidió.</p>
       </div>
     </article>
   </div>

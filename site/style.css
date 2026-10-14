@@ -238,6 +238,38 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 .ticket-mock b { color: var(--accent); margin-right: .5rem; }
 .ticket-mock span { color: var(--faint); font-weight: 500; font-size: .95rem; }
 
+/* Menu: editorial split, a sheet with Ronda's preview floating over it. ----- */
+.carta-grid { max-width: 72rem; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 5vw, 5rem); align-items: center; }
+.carta-copy h2 { margin-bottom: 1.4rem; }
+.carta-steps { list-style: none; margin: 2.4rem 0 0; padding: 0; display: grid; gap: 1.6rem; }
+.carta-steps li { display: grid; grid-template-columns: 2.6rem 1fr; gap: .4rem; }
+.carta-steps .step-n { padding-top: .3rem; }
+.carta-steps h3 { font-size: clamp(1.25rem, 1.6vw, 1.45rem); margin-bottom: .35rem; }
+.carta-steps p { color: var(--muted); }
+.carta-visual { position: relative; padding-bottom: 4rem; min-width: 0; }
+.carta-copy { min-width: 0; }
+.sheet { rotate: -1.5deg; }
+.sheet-core { padding: 0 0 .6rem; overflow: hidden; }
+.sheet-bar { display: flex; align-items: center; gap: .4rem; padding: .8rem 1rem; border-bottom: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
+.sheet-bar span { width: .55rem; height: .55rem; border-radius: 50%; background: var(--line-2); }
+.sheet-bar b { margin-left: .5rem; font-weight: 600; }
+.sheet table { width: 100%; border-collapse: collapse; font-size: .78rem; font-variant-numeric: tabular-nums; }
+.sheet th, .sheet td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.sheet th { color: var(--accent); font-weight: 600; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; background: rgba(236, 154, 82, .05); }
+.sheet td { color: var(--text); }
+.sheet td:last-child { color: var(--faint); max-width: 11rem; overflow: hidden; text-overflow: ellipsis; }
+.sheet tr:last-child td { border-bottom: 0; }
+.preview { position: absolute; right: -1rem; bottom: 0; width: min(20rem, 80%); rotate: 2deg; z-index: 1; }
+.preview-core { padding: 1.2rem 1.3rem; display: grid; gap: .4rem; background: var(--surface-2); }
+.preview-title { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
+.preview-line { color: var(--muted); font-size: .9rem; }
+.preview-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .5rem; font-size: .85rem; font-weight: 650; }
+.preview-actions span { padding: .45rem 1rem; border-radius: 999px; }
+.preview-actions .ghost { box-shadow: inset 0 0 0 1px var(--line-2); color: var(--muted); }
+.preview-actions .apply { color: #1c1006; background: linear-gradient(180deg, var(--accent-hi), var(--accent) 55%, var(--accent-lo)); }
+.carta-extras { max-width: 72rem; margin: clamp(3rem, 7vw, 5rem) auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(1rem, 2vw, 1.4rem); }
+.carta-extras .card h3 { margin-top: 0; }
+
 /* Pay: editorial split, two tilted cards. ------------------------------------- */
 .pay-grid { max-width: 72rem; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 6vw, 6rem); align-items: center; }
 .pay-copy h2 { margin-bottom: 1.6rem; }
@@ -325,7 +357,12 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
   html.menu-open .burger span:last-child { transform: rotate(-45deg); }
 
   .hero { padding-top: 7rem; }
-  .hero-grid, .pay-grid { grid-template-columns: 1fr; }
+  .hero-grid, .pay-grid, .carta-grid { grid-template-columns: 1fr; }
+  .carta-extras { grid-template-columns: 1fr; }
+  .sheet, .preview { rotate: none; }
+  .sheet-core { overflow-x: auto; }
+  .carta-visual { padding-bottom: 0; }
+  .preview { position: relative; right: auto; bottom: auto; width: min(18rem, 86%); margin: -2.5rem .5rem 0 auto; }
   .cascade { padding-block: 1rem 0; }
   .d-back, .d-side { display: none; }
   .cascade .device { --wf: min(17rem, 72vw); }
