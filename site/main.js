@@ -20,7 +20,7 @@ for (const el of document.querySelectorAll('.reveal')) reveal.observe(el);
 const how = document.querySelector('.how');
 const pin = how.querySelector('.how-pin');
 const track = how.querySelector('.how-track');
-if (CSS.supports('animation-timeline: view()') && matchMedia('(prefers-reduced-motion: no-preference) and (min-height: 480px)').matches) {
+if (CSS.supports('animation-timeline: view()') && matchMedia('(min-height: 480px)').matches) {
   const size = () => how.style.setProperty('--how-h', `${pin.offsetHeight + track.offsetWidth - pin.clientWidth}px`);
   new ResizeObserver(size).observe(track);
   new ResizeObserver(size).observe(pin);

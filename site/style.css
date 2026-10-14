@@ -189,7 +189,7 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
   display: flex; gap: clamp(1rem, 2vw, 1.5rem); width: max-content; margin: 0; list-style: none;
   padding: .5rem max(var(--pad), (100cqw - 72rem) / 2);
 }
-/* Height left over after the nav, the heading and the progress bar. */
+/* Height left over after the nav and the heading. */
 .h-card { flex: none; width: min(46rem, 84cqw); height: clamp(20rem, 100svh - 23rem, 32rem); scroll-snap-align: center; }
 .h-card.wide-card { width: min(62rem, 88cqw); }
 .h-core {
@@ -205,8 +205,6 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
 .h-shot { align-self: stretch; margin-bottom: clamp(1.6rem, 3vw, 2.6rem); border-radius: 1.1rem; overflow: hidden;
   box-shadow: 0 0 0 1px var(--line-2), 0 30px 60px -30px rgba(0, 0, 0, .9); }
 .h-shot img { width: 100%; height: 100%; object-fit: cover; object-position: left top; }
-.how-progress { display: none; width: min(72rem, 100% - 2 * var(--pad)); height: 2px; margin: 0 auto; border-radius: 2px; background: var(--line); overflow: hidden; }
-.how-progress span { display: block; height: 100%; background: var(--accent); transform-origin: left; }
 .step-n { font-family: var(--serif); font-size: 1rem; color: var(--accent); letter-spacing: .1em; }
 
 /* Kitchen: a wide screen, then an asymmetric bento. ------------------------ */
@@ -284,8 +282,9 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
   }
 }
 @supports (animation-timeline: view()) {
-  /* Very short screens can't hold the heading and a card at once: they keep the swipe. */
-  @media (prefers-reduced-motion: no-preference) and (min-height: 480px) {
+  /* Very short screens can't hold the heading and a card at once: they keep the swipe.
+     Not gated on reduced motion: the row moves only as far as the reader scrolls. */
+  @media (min-height: 480px) {
     /* The section is as tall as the row is wide, so one step down moves the row one step left. */
     .how { view-timeline: --how block; height: var(--how-h, 320vh); }
     .how-pin { position: sticky; top: 0; height: 100svh; overflow: clip; }
@@ -293,14 +292,11 @@ section { position: relative; padding: clamp(6rem, 14vw, 11rem) var(--pad); }
     /* Cards take whatever height the screen leaves after the heading. */
     .how-track { height: 100%; align-items: center; }
     .how .how-track .h-card { height: 100%; max-height: 32rem; }
-    .how-track, .how-progress span { animation: linear both; animation-timeline: --how; animation-range: contain 0% contain 100%; }
+    .how-track { animation: linear both; animation-timeline: --how; animation-range: contain 0% contain 100%; }
     .how-track { animation-name: how-slide; }
-    .how-progress { display: block; }
-    .how-progress span { animation-name: how-bar; }
   }
 }
 @keyframes how-slide { to { translate: calc(-100% + 100cqw) 0; } }
-@keyframes how-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes drift { from { translate: 0 calc(var(--depth) * 1px); } to { translate: 0 calc(var(--depth) * -1px); } }
 @keyframes ring-drift { to { translate: 0 30vh; rotate: 25deg; } }
 @keyframes ring-drift-2 { to { translate: -6vw 48vh; rotate: -18deg; } }
