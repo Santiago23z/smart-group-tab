@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f0b09">
+<title>Ronda — La cuenta de la mesa, sin perseguir a nadie</title>
+<meta name="description" content="Tus clientes escanean el QR, piden juntos desde su celular y cada quien paga lo suyo. La cocina recibe el pedido sola.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23120f0d'/%3E%3Cg fill='none' stroke='%23ec9a52' stroke-width='2.6'%3E%3Ccircle cx='11.5' cy='12' r='6'/%3E%3Ccircle cx='20.5' cy='12' r='6'/%3E%3Ccircle cx='16' cy='19.5' r='6'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+
+<!-- Floating island nav ---------------------------------------------------- -->
+<header class="nav-wrap">
+  <nav class="nav" aria-label="Principal">
+    <a class="brand" href="#inicio" aria-label="Ronda, inicio">
+      <svg viewBox="0 0 32 28" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="10" cy="10" r="7.5"/><circle cx="22" cy="10" r="7.5"/><circle cx="16" cy="19" r="7.5"/></g></svg>
+      <span>Ronda</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#como">Cómo funciona</a></li>
+      <li><a href="#cocina">Tu cocina</a></li>
+      <li><a href="#pagos">Pagos</a></li>
+    </ul>
+    <a class="btn btn-small" href="#contacto">
+      <span>Agenda una demo</span>
+      <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 11L11 5M6 5h5v5"/></svg></span>
+    </a>
+    <button class="burger" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu">
+      <span></span><span></span>
+    </button>
+  </nav>
+</header>
+
+<div class="menu" id="menu" aria-hidden="true">
+  <ul>
+    <li style="--i:0"><a href="#como">Cómo funciona</a></li>
+    <li style="--i:1"><a href="#cocina">Tu cocina</a></li>
+    <li style="--i:2"><a href="#pagos">Pagos</a></li>
+    <li style="--i:3"><a href="#contacto">Agenda una demo</a></li>
+  </ul>
+</div>
+
+<main>
+
+<!-- Hero ------------------------------------------------------------------- -->
+<section class="hero" id="inicio">
+  <!-- The mark, huge, in three depths: the round of glasses over the table. -->
+  <div class="rings" aria-hidden="true">
+    <svg class="ring r1" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"/></svg>
+    <svg class="ring r2" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"/></svg>
+    <svg class="ring r3" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"/></svg>
+  </div>
+
+  <div class="hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow reveal">Para bares y gastrobares</p>
+      <h1 class="reveal" style="--i:1">La cuenta de la mesa, <em>sin perseguir a nadie.</em></h1>
+      <p class="lede reveal" style="--i:2">Tus clientes escanean el QR, piden juntos desde su celular y cada quien paga lo suyo. La cocina recibe el pedido sola.</p>
+      <div class="cta-row reveal" style="--i:3">
+        <a class="btn" href="#contacto">
+          <span>Agenda una demo</span>
+          <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 11L11 5M6 5h5v5"/></svg></span>
+        </a>
+        <a class="btn btn-ghost" href="#como"><span>Cómo funciona</span></a>
+      </div>
+    </div>
+
+    <!-- Z-axis cascade: three real screens of Ronda, at three depths. -->
+    <div class="cascade" aria-label="Ronda en el celular: elegir cómo pagar, la carta y el pago">
+      <figure class="device d-back" data-depth="40"><div class="screen"><img src="img/phone-join.jpg" alt="Al entrar a la mesa: ¿cómo van a pagar? Pagar cada ronda o abrir cuenta y pagar al final" width="780" height="1328"></div></figure>
+      <figure class="device d-front" data-depth="110"><div class="screen"><img src="img/phone-menu.jpg" alt="La carta: cada plato dice quién lo está pidiendo, con cantidades y la barra del pedido" width="780" height="1328"></div></figure>
+      <figure class="device d-side" data-depth="70"><div class="screen"><img src="img/phone-pay.jpg" alt="Tu parte: pagar ahora, o seguir pidiendo y pagar todo al final" width="780" height="1328"></div></figure>
+    </div>
+  </div>
+</section>
+
+<!-- How it works: the phone stays, the steps scroll ---------------------- -->
+<section class="how" id="como">
+  <div class="section-head">
+    <p class="eyebrow reveal">Cómo funciona</p>
+    <h2 class="reveal" style="--i:1">Del QR a la cocina, sin que nadie levante la mano.</h2>
+  </div>
+
+  <div class="how-grid">
+    <div class="how-phone">
+      <figure class="device sticky-device" data-step="1">
+        <div class="screen">
+          <img class="step-img" data-for="1" src="img/phone-join.jpg" alt="" width="780" height="1328">
+          <img class="step-img" data-for="2" src="img/phone-menu.jpg" alt="" width="780" height="1328" loading="lazy">
+          <img class="step-img" data-for="3" src="img/phone-pay.jpg" alt="" width="780" height="1328" loading="lazy">
+        </div>
+      </figure>
+    </div>
+
+    <ol class="steps">
+      <li class="step" data-step="1">
+        <span class="step-n">01</span>
+        <h3>Escanean y eligen cómo pagar.</h3>
+        <p>Sin descargar nada ni crear cuentas: el QR de la mesa y un apodo. El primero que llega elige si pagan cada ronda o abren cuenta y pagan al final. Pueden cambiar cuando quieran.</p>
+      </li>
+      <li class="step" data-step="2">
+        <span class="step-n">02</span>
+        <h3>Piden juntos, cada uno desde su celular.</h3>
+        <p>Todos ven en vivo lo que pide la mesa. Pueden pedir varias unidades, compartir un plato entre varios y mandar el pedido a la cocina con un toque.</p>
+      </li>
+      <li class="step" data-step="3">
+        <span class="step-n">03</span>
+        <h3>Cada quien paga lo suyo.</h3>
+        <p>Con Nequi, PSE o tarjeta a través de Wompi, o al mesero en efectivo o datáfono. Mientras alguien paga, su parte queda apartada: nadie paga dos veces lo mismo.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- For the kitchen and the till: asymmetric bento ------------------------ -->
+<section class="kitchen" id="cocina">
+  <div class="section-head">
+    <p class="eyebrow reveal">Para tu cocina y tu caja</p>
+    <h2 class="reveal" style="--i:1">Una pantalla para el pase.<br>Sin papelitos, sin perseguir cuentas.</h2>
+  </div>
+
+  <div class="bezel wide reveal" style="--i:2" data-depth="30">
+    <div class="bezel-core screen-kitchen">
+      <img src="img/kitchen.jpg" alt="La pantalla de la cocina de Ronda: pedidos con su estado de pago, la plata del día, y quién debe y desde hace cuánto" width="2000" height="1250" loading="lazy">
+    </div>
+  </div>
+
+  <div class="bento">
+    <article class="bezel b-7 reveal">
+      <div class="bezel-core card">
+        <div class="badges" aria-hidden="true">
+          <span class="badge paid">pagado · por llevar</span>
+          <span class="badge unpaid">sin pagar</span>
+        </div>
+        <h3>Sabe qué está pagado.</h3>
+        <p>Cada pedido dice si ya está pagado o si se cobra al final. Con palabras, no con números: la cocina no tiene por qué ver plata.</p>
+      </div>
+    </article>
+    <article class="bezel b-5 reveal" style="--i:1">
+      <div class="bezel-core card">
+        <p class="pill-mock" aria-hidden="true">Hoy <strong>$66.960</strong></p>
+        <h3>La plata del día, en vivo.</h3>
+        <p>Cuánto entró hoy, y cuánto por Wompi, en efectivo y por datáfono. Las propinas, aparte.</p>
+      </div>
+    </article>
+    <article class="bezel b-5 reveal">
+      <div class="bezel-core card">
+        <p class="warn-mock" aria-hidden="true">Ana debe $129.600 · hace 2 h</p>
+        <h3>Quién debe, y desde hace cuánto.</h3>
+        <p>Si alguien lleva demasiado sin pagar, aparece un aviso. Tu mesero llega antes de que la mesa se vaya.</p>
+      </div>
+    </article>
+    <article class="bezel b-7 reveal" style="--i:1">
+      <div class="bezel-core card">
+        <p class="ticket-mock" aria-hidden="true"><b>2×</b> Michelada <span>· Pipe</span></p>
+        <h3>El pedido llega solo, una vez.</h3>
+        <p>Sin anotar ni dictar: la ronda aparece en la cocina apenas está lista para preparar. El mismo plato de la misma persona, en una sola línea.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- Each round or at the end: editorial split -------------------------- -->
+<section class="pay" id="pagos">
+  <div class="pay-grid">
+    <div class="pay-copy">
+      <p class="eyebrow reveal">Pagos</p>
+      <h2 class="reveal" style="--i:1">Que paguen como quieran. <em>Tú cobras igual.</em></h2>
+      <p class="lede reveal" style="--i:2">La mesa decide cómo paga, y puede cambiar en cualquier momento. Lo que ya se pagó nunca se vuelve a cobrar.</p>
+    </div>
+    <div class="pay-cards">
+      <article class="bezel tilt-a reveal" data-depth="30">
+        <div class="bezel-core card">
+          <span class="step-n">A</span>
+          <h3>Pagar cada ronda.</h3>
+          <p>La cocina recibe cada pedido cuando está pagado completo. Ideal para la barra y las noches llenas.</p>
+        </div>
+      </article>
+      <article class="bezel tilt-b reveal" style="--i:1" data-depth="60">
+        <div class="bezel-core card">
+          <span class="step-n">B</span>
+          <h3>Abrir cuenta y pagar al final.</h3>
+          <p>Piden lo que quieran y pagan al pedir la cuenta. Quien se va antes puede pagar lo suyo cuando quiera.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- What is not negotiable ------------------------------------------------ -->
+<section class="promises">
+  <div class="section-head">
+    <p class="eyebrow reveal">Lo que no se negocia</p>
+  </div>
+  <ul class="promise-list">
+    <li class="reveal">
+      <h3>Nadie paga dos veces lo mismo.</h3>
+      <p>Cada parte de un plato se aparta mientras alguien la paga. Dos personas nunca pueden pagar la misma.</p>
+    </li>
+    <li class="reveal" style="--i:1">
+      <h3>Ningún pago se pierde.</h3>
+      <p>Si el aviso de un pago se demora o no llega, Ronda le pregunta a Wompi y lo pone en su lugar.</p>
+    </li>
+    <li class="reveal" style="--i:2">
+      <h3>Cada pedido llega una sola vez a la cocina.</h3>
+      <p>Ni duplicados ni pedidos perdidos, aunque la red del local falle un rato.</p>
+    </li>
+  </ul>
+</section>
+
+<!-- Call to action --------------------------------------------------------- -->
+<section class="cta" id="contacto">
+  <div class="rings small" aria-hidden="true">
+    <svg class="ring r1" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"/></svg>
+    <svg class="ring r2" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"/></svg>
+    <svg class="ring r3" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48"/></svg>
+  </div>
+  <p class="eyebrow reveal">Pruébalo</p>
+  <h2 class="reveal" style="--i:1">Te lo mostramos en tu bar,<br><em>con dos celulares.</em></h2>
+  <p class="lede reveal" style="--i:2">Diez minutos en una mesa y ves cómo funciona, de punta a punta.</p>
+  <div class="cta-row center reveal" style="--i:3">
+    <!-- TODO: WhatsApp number of Ronda (https://wa.me/57XXXXXXXXXX). -->
+    <a class="btn" href="#contacto" data-todo="whatsapp">
+      <span>Escríbenos por WhatsApp</span>
+      <span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 11L11 5M6 5h5v5"/></svg></span>
+    </a>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <a class="brand" href="#inicio">
+    <svg viewBox="0 0 32 28" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="10" cy="10" r="7.5"/><circle cx="22" cy="10" r="7.5"/><circle cx="16" cy="19" r="7.5"/></g></svg>
+    <span>Ronda</span>
+  </a>
+  <p>Pagos con Wompi: Nequi, PSE y tarjetas.</p>
+  <p>© 2026 Ronda</p>
+</footer>
+
+<script src="main.js" type="module"></script>
+</body>
+</html>
