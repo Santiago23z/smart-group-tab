@@ -51,9 +51,12 @@ que se comportaría como "pagar cada ronda". Completarlo, con un abono, es un ca
    pagar** o **Enviar a la cocina** según cómo paga la mesa. Si alguien se une, aparecen solas.
 4. **Pagar la ronda** (en "pagar antes de pedir"). Cada persona paga lo suyo ("Pagar lo mío") o
    alguien cubre lo que falta ("Cubrir el resto"). Lo que se paga queda apartado 5 minutos para
-   esa persona, así dos personas nunca pagan lo mismo.
-5. **Cocina.** Cuando la ronda está pagada completa, llega sola a la pantalla de la cocina. La
-   cocina la marca "Listo" cuando sale.
+   esa persona, así dos personas nunca pagan lo mismo. Cuando el pago se confirma, el celular de
+   quien pagó muestra **"¡Pagado!"** con el monto y vibra (en Android; el iPhone no deja vibrar a
+   una página web). Sale una sola vez por pago, también si el pago se confirma después o si el
+   mesero registra que esa persona pagó en efectivo o datáfono.
+5. **Cocina.** Cuando la ronda está pagada completa, llega sola a la pantalla de la cocina, con un
+   sonido corto. La cocina la marca "Listo" cuando sale.
 6. **Pedir la cuenta.** Al final, cualquier comensal (o el mesero) pide la cuenta. Desde ese
    momento no se puede pedir más.
 7. **Pagar la cuenta** (en "cuenta abierta"). Cada persona paga **todo lo suyo de todas las rondas
@@ -115,6 +118,10 @@ Una sola pantalla para el personal, protegida con un enlace secreto:
   **Asumir pérdida** (si toda la mesa se fue: cubre toda la cuenta pendiente, nunca una parte, con
   motivo obligatorio) y **Cerrar mesa** (si no se puede, dice por qué).
 - Aviso rojo si los pedidos dejan de llegar a la cocina.
+- **Sonido:** cada pedido nuevo suena una vez. El navegador solo deja sonar después de un toque,
+  así que al abrir la pantalla el botón de arriba dice **"Toca para sonido"**; un toque lo activa
+  ("Sonido") y otro lo silencia ("Silencio"). El silencio se recuerda en esa pantalla. Lo que ya
+  estaba al abrir no suena.
 
 Cada acción del personal queda registrada. Las alertas se quitan solas cuando se resuelve su
 causa.
@@ -211,7 +218,12 @@ npm run wompi    # puente de Wompi + revisión cada minuto (8787)
 npm run worker   # envíos a la cocina
 npm run kds      # pantalla de cocina (8790)
 npm run test:all # todas las pruebas, con su propia base de datos
+npm run demo:reset -- --yes   # demo limpia: borra la noche, deja el bar, la carta y los QR
 ```
+
+`demo:reset` borra mesas abiertas, pedidos, pagos, tickets y alertas, y vuelve a ofrecer los
+platos agotados. Sin `--yes` solo muestra qué borraría; no corre contra una base que no esté en
+la Mac (salvo `--remote`). Es solo para la demo: borra el registro de pagos.
 
 Direcciones de la demo:
 
@@ -263,6 +275,7 @@ Nueve capacidades documentadas en `openspec/specs/`:
 | 13 oct | La cocina ve quién debe y desde hace cuánto, con un aviso cuando pasa de 90 minutos |
 | 13 oct | Barra flotante del pedido en la Carta; la barra de pago ya no desaparece si alguien pide más mientras una ronda está en cobro |
 | 13 oct | La Carta muestra lo que pide la mesa y permite pedir cantidades; la cocina agrupa platos iguales |
+| 17 oct | Demo limpia con un comando; "¡Pagado!" en el celular de quien paga; sonido en la cocina por cada pedido nuevo |
 
 ## Lo que falta
 

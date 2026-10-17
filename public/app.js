@@ -946,7 +946,8 @@ async function confirmPayment() {
 
   $('pay').hidden = true
   await refresh()
-  toast(paid.status === 'settled' ? 'Pagado' : `Pago: ${paid.status}`, paid.status !== 'settled')
+  if (paid.status === 'settled') confirmPaid('Pagado')
+  else toast(`Pago: ${paid.status}`, true)
 }
 
 // ---------------------------------------------------------------------------
@@ -1037,6 +1038,7 @@ async function refresh() {
   try {
     state = await api(`/api/state?session_id=${me.sessionId}&participant_id=${me.participantId}`)
     render()
+    noticePayments(state.my_payments)
   } catch (err) {
     // A dropped request is normal in a bar, and the next tick reconciles it.
     // A session the server does not have never reconciles: polling it forever
@@ -1047,6 +1049,44 @@ async function refresh() {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Paid: celebrated on the payer's phone, once per payment
+// ---------------------------------------------------------------------------
+// Counting confirmed payments covers every way one lands — Wompi on return, a
+// late webhook, cash the waiter registers for this diner, the simulated one.
+// The last count seen is kept per participant, so it survives the trip to
+// Wompi and back, and a reload never celebrates the same payment twice. With
+// nothing stored yet (a new diner, another device) it only takes note.
+const paidKey = () => `ronda.paid.${me.participantId}`
+let skipNextPaid = false // a payment that became table credit has its own message
+let celebratedAt = 0
+
+function noticePayments(mine) {
+  if (!mine || !me) return
+  const seen = localStorage.getItem(paidKey())
+  localStorage.setItem(paidKey(), String(mine.count))
+  if (seen === null || Number(mine.count) <= Number(seen)) return
+  if (skipNextPaid) return void (skipNextPaid = false)
+  celebratePaid(mine.last_amount)
+}
+
+function celebratePaid(amount) {
+  $('paid-amount').textContent = money(amount)
+  $('paid').hidden = false
+  celebratedAt = Date.now()
+  navigator.vibrate?.([14, 60, 22]) // not on iPhone: Safari has no vibration
+  clearTimeout(celebratePaid.timer)
+  celebratePaid.timer = setTimeout(() => ($('paid').hidden = true), 2600)
+}
+
+$('paid').addEventListener('click', () => {
+  clearTimeout(celebratePaid.timer)
+  $('paid').hidden = true
+})
+
+/** After a payment the server says went through: the celebration, or a plain word if it could not show. */
+const confirmPaid = (fallback) => Date.now() - celebratedAt < 5000 || toast(fallback)
 
 // ---------------------------------------------------------------------------
 // Back from Wompi
@@ -1079,6 +1119,7 @@ async function checkReturnFromWompi() {
     const result = await api('/api/payments/reconcile', { transaction_id: transactionId })
     // Approved but unplaceable (a lapsed hold whose shares someone else paid):
     // the money is safe as table credit, but nothing is going to the kitchen.
+    if (result.status === 'credited') skipNextPaid = true
     message = result.status === 'credited'
       ? ['Pago recibido. Quedó como saldo a favor de la mesa; un mesero te va a ayudar.', true]
       : RETURN_MESSAGES[result.outcome] ?? WAITING
@@ -1086,7 +1127,9 @@ async function checkReturnFromWompi() {
     // The webhook and the periodic check still stand behind this.
   }
   await refresh()
-  toast(...message)
+  // Approved: the celebration says it.
+  if (message === RETURN_MESSAGES.approved) confirmPaid(message[0])
+  else toast(...message)
 }
 
 setInterval(refresh, 2000)

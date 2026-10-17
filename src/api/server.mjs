@@ -156,6 +156,13 @@ async function tableState(sessionId, participantId) {
              from contribution_reservations cr
             where cr.participant_id = $2 and cr.status = 'active' and cr.expires_at > now()
             order by cr.created_at desc limit 1) x),
+       -- Confirmed payments by this diner, however they came in (Wompi, cash for
+       -- them, the simulated one). The phone celebrates when the count goes up.
+       'my_payments', (
+         select jsonb_build_object(
+                  'count', count(*),
+                  'last_amount', (array_agg(co.order_amount + co.tip_amount order by co.created_at desc))[1])
+           from contributions co where co.participant_id = $2),
        -- "Voy a pagar en efectivo": the open one, while its part still owes.
        'my_cash_request', (
          select jsonb_build_object('id', c.id, 'scope', c.scope, 'method', c.method,

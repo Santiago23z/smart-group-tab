@@ -34,6 +34,7 @@ async function startApi(env) {
     post: (path, body) => fetch(`${base}${path}`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
     }).then((r) => r.json()),
+    get: (path) => fetch(`${base}${path}`).then((r) => r.json()),
     stop: () => new Promise((r) => { child.once('exit', r); child.kill('SIGTERM') }),
   }
 }
@@ -75,5 +76,21 @@ test('without Wompi keys, the simulated payment still settles', async () => {
     const r = await api.post('/api/dev/pay', { reservation_id: f.reservationId })
     assert.equal(r.status, 'settled')
     assert.equal(await roundStatus(f.roundId), 'paid_and_dispatched')
+  } finally { await api.stop() }
+})
+
+test('a confirmed payment counts on the payer\'s state only, with its amount', async () => {
+  const api = await startApi({ ALLOW_SIMULATED_PAYMENTS: 'true', WOMPI_PUBLIC_KEY: '', WOMPI_INTEGRITY_SECRET: '' })
+  try {
+    const f = await createFixture(pool, { participants: 2, items: [{ price: 12_000, owner: 0 }, { price: 8_000, owner: 1 }] })
+    const [ana, beto] = f.participantIds
+    const mine = (p) => api.get(`/api/state?session_id=${f.sessionId}&participant_id=${p}`).then((s) => s.my_payments)
+    assert.deepEqual(await mine(ana), { count: 0, last_amount: null })
+
+    const r = await reserve(pool, { roundId: f.roundId, participantId: ana, mode: 'my_items', tip: 1_000, key: `dev-${Math.random()}` })
+    assert.equal((await api.post('/api/dev/pay', { reservation_id: r.reservation_id })).status, 'settled')
+
+    assert.deepEqual(await mine(ana), { count: 1, last_amount: 13_000 }, 'order and tip together')
+    assert.deepEqual(await mine(beto), { count: 0, last_amount: null })
   } finally { await api.stop() }
 })

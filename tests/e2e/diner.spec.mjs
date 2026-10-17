@@ -299,6 +299,53 @@ test('paying the whole balance fires the kitchen exactly once', async ({ page })
   expect(Number(c.order_amount)).toBe(30240)
 })
 
+// The moment the money goes through: celebrated on the payer's phone only,
+// once, however the payment was confirmed.
+test('a confirmed payment is celebrated on the payer\'s phone only, once; cash for Beto celebrates on his', async ({ browser }) => {
+  const qr = await freshTable('celebrate')
+  const ctxA = await browser.newContext()
+  const ctxB = await browser.newContext()
+  const a = await ctxA.newPage()
+  const b = await ctxB.newPage()
+  await joinAs(a, qr, 'Ana')
+  await joinAs(b, qr, 'Beto')
+  await order(a, 'Hamburguesa de la casa')
+  await order(b, 'Cerveza artesanal')
+  await openCart(a)
+  await a.locator('button[data-close="as_ordered"]').tap()
+  await expect(a.locator('#bar')).toBeVisible()
+
+  // Ana pays her burger.
+  await a.locator('#bar-action').tap()
+  await a.locator('#pay-confirm').tap()
+  await expect(a.locator('#paid')).toBeVisible({ timeout: 8000 })
+  await expect(a.locator('#paid')).toBeVisible({ timeout: 8000 })
+  await expect(a.locator('#paid-amount')).toHaveText('$30.240')
+  await settled(b)
+  await expect(b.locator('#paid')).toBeHidden()
+
+  // It closes by itself, and a reload does not bring it back.
+  await expect(a.locator('#paid')).toBeHidden({ timeout: 5000 })
+  await a.reload()
+  await expect(a.locator('#table')).toBeVisible()
+  await settled(a)
+  await expect(a.locator('#paid')).toHaveAttribute('hidden', '')
+
+  // The waiter takes Beto's part in cash, from the kitchen screen.
+  const [{ round_id, beto }] = await sql(
+    `select r.id as round_id, p.id as beto from rounds r join sessions s on s.id = r.session_id
+       join tables t on t.id = s.table_id join participants p on p.session_id = s.id and p.nickname = 'Beto'
+      where t.qr_token = $1 and r.round_number = 1`, [qr])
+  const [{ r }] = await sql(`select staff_record_manual_payment('round', $1, $2, 'cash') as r`, [round_id, beto])
+  expect(r.status).toBe('recorded')
+  await expect(b.locator('#paid')).toBeVisible({ timeout: 8000 })
+  await expect(b.locator('#paid-amount')).toHaveText('$12.960')
+  await expect(a.locator('#paid')).toHaveAttribute('hidden', '')
+
+  await ctxA.close()
+  await ctxB.close()
+})
+
 test('a big tip does not buy the food: one unpaid share still holds the kitchen', async ({ browser }) => {
   const qr = await freshTable('tip')
   const ctxA = await browser.newContext()
@@ -459,7 +506,7 @@ test('an open tab: two rounds, the bill, one payment each, and the table closes'
   await expect(a.locator('#bar-amount')).toHaveText('$18.000')
   await a.locator('#bar-action').tap()
   await a.locator('#pay-confirm').tap()
-  await expect(a.locator('#toast')).toContainText('Pagado')
+  await expect(a.locator('#paid')).toBeVisible({ timeout: 8000 })
 
   // Beto, on his phone: his part is what is left, and paying it closes the table.
   await openCart(b)
@@ -730,7 +777,7 @@ test('on a tab, Carla pays her part before the bill and Ana keeps ordering', asy
   await carla.locator('#bar-action').tap()
   await expect(carla.locator('#cash-options')).toBeHidden()
   await carla.locator('#pay-confirm').tap()
-  await expect(carla.locator('#toast')).toContainText('Pagado')
+  await expect(carla.locator('#paid')).toBeVisible({ timeout: 8000 })
 
   // Nobody asked for the bill: Ana orders again.
   await openMenu(ana)
@@ -818,7 +865,7 @@ test('the pay bar has priority over the floating order bar', async ({ page }) =>
   await expect(page.locator('#bar-amount')).toHaveText('$30.240')
   await page.locator('#bar-action').tap()
   await page.locator('#pay-confirm').tap()
-  await expect(page.locator('#toast')).toContainText('Pagado', { timeout: 8000 })
+  await expect(page.locator('#paid')).toBeVisible({ timeout: 8000 })
   const rounds = await sql(
     `select r.round_number, r.status from rounds r join sessions s on s.id = r.session_id join tables t on t.id = s.table_id
       where t.qr_token = $1 order by r.round_number`, [qr])

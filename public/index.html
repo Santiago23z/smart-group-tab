@@ -152,6 +152,15 @@
 
 <div id="toast" class="toast" hidden></div>
 
+<!-- A confirmed payment, on the phone of whoever paid. Closes by itself or on a tap. -->
+<div id="paid" class="paid" hidden role="status" aria-live="polite">
+  <div class="paid-card">
+    <svg class="paid-check" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="23"/><path d="M15.5 27.5l7 7 14-15"/></svg>
+    <p class="paid-title">¡Pagado!</p>
+    <p class="paid-amount" id="paid-amount"></p>
+  </div>
+</div>
+
 <script type="module" src="/app.js"></script>
 </body>
 </html>

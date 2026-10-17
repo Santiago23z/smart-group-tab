@@ -160,6 +160,41 @@ test('what is already on screen when it opens appears at once, without animating
   expect(await page.evaluate(() => window.entered)).toEqual([])
 })
 
+// A new order chimes once; what was there on load, a repeated delivery, and a
+// muted screen stay silent. The chime is counted on <body>: the test cannot hear.
+test('a new order chimes once; on load, on repeat and when muted it stays silent', async ({ page, baseURL }) => {
+  const chimes = () => page.evaluate(() => Number(document.body.dataset.chimes ?? 0))
+  const before = await paidRound('kds-chime-old')
+  await deliver(baseURL, before.roundId)
+
+  await openScreen(page)
+  await expect(page.locator(`.ticket[data-round="${before.roundId}"]`)).toBeVisible({ timeout: 8000 })
+  await expect(page.locator('#sound')).toHaveAttribute('data-state', 'locked')
+  await expect(page.locator('#sound')).toHaveText('Toca para sonido')
+  expect(await chimes()).toBe(0)
+
+  // The tap the browser needs before it allows sound.
+  await page.locator('#sound').click()
+  await expect(page.locator('#sound')).toHaveAttribute('data-state', 'on')
+
+  const fresh = await paidRound('kds-chime-new')
+  await deliver(baseURL, fresh.roundId)
+  await expect(page.locator(`.ticket[data-round="${fresh.roundId}"]`)).toBeVisible({ timeout: 8000 })
+  await expect.poll(chimes).toBe(1)
+  await page.waitForTimeout(3500) // another poll lists the same tickets
+  expect(await chimes()).toBe(1)
+
+  await page.locator('#sound').click()
+  await expect(page.locator('#sound')).toHaveText('Silencio')
+  const quiet = await paidRound('kds-chime-muted')
+  await deliver(baseURL, quiet.roundId)
+  await expect(page.locator(`.ticket[data-round="${quiet.roundId}"]`)).toBeVisible({ timeout: 8000 })
+  expect(await chimes()).toBe(1)
+
+  await page.reload()
+  await expect(page.locator('#sound')).toHaveAttribute('data-state', 'muted')
+})
+
 test('a table whose order never reached the kitchen is shown with its reason', async ({ page }) => {
   const { roundId, sessionId, label } = await paidRound('kds-fail')
   await sql(`update dispatches set status = 'failed', attempts = 8, last_error = 'HTTP 503 cocina caída'

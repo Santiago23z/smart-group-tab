@@ -179,6 +179,8 @@ function renderTickets(tickets) {
   $('order-count').textContent = tickets.length ? `${tickets.length} en cola` : ''
   $('no-orders').hidden = tickets.length > 0
   for (const id of leaving) if (!tickets.some((t) => t.round_id === id)) leaving.delete(id)
+  // Before fresh() marks them seen: did a ticket arrive that this screen has not shown?
+  const arrived = primed && tickets.some((t) => !seen.has(`t:${t.round_id}`))
   $('tickets').replaceChildren(...tickets.map((t) => {
     const w = waited(t.first_received_at)
     const lateness = w.seconds >= 20 * 60 ? ' very-late' : w.seconds >= 10 * 60 ? ' late' : ''
@@ -203,6 +205,7 @@ function renderTickets(tickets) {
         },
       }, 'Listo'))
   }))
+  if (arrived) chime()
 }
 
 function renderAlerts(alerts) {
@@ -671,6 +674,65 @@ function renderOpenTables(tables) {
         }, 'Cerrar mesa')))
   }))
 }
+
+// ---------------------------------------------------------------------------
+// Sound: a short chime when a new order arrives
+// ---------------------------------------------------------------------------
+// Browsers keep audio suspended until someone touches the page, so the first
+// tap anywhere turns it on. Muting is remembered on this screen. The chime is
+// two soft notes made here, with no file to load.
+const MUTE_KEY = 'kds.muted'
+let audio = null
+let muted = localStorage.getItem(MUTE_KEY) === '1'
+
+function unlockAudio() {
+  const Ctx = window.AudioContext ?? window.webkitAudioContext
+  if (!Ctx) return
+  if (!audio) {
+    audio = new Ctx()
+    audio.addEventListener('statechange', paintSound)
+  }
+  if (audio.state !== 'running') audio.resume().catch(() => {})
+}
+
+function paintSound() {
+  const on = audio?.state === 'running'
+  const state = muted ? 'muted' : on ? 'on' : 'locked'
+  const b = $('sound')
+  b.dataset.state = state
+  b.textContent = { muted: 'Silencio', on: 'Sonido', locked: 'Toca para sonido' }[state]
+  b.setAttribute('aria-pressed', String(state === 'on'))
+}
+
+function chime() {
+  if (muted) return
+  // Counted for the tests: they cannot hear.
+  document.body.dataset.chimes = String(Number(document.body.dataset.chimes ?? 0) + 1)
+  if (audio?.state !== 'running') return
+  const t0 = audio.currentTime
+  for (const [freq, at] of [[880, 0], [1318.5, 0.13]]) {
+    const osc = audio.createOscillator()
+    const gain = audio.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = freq
+    gain.gain.setValueAtTime(0.0001, t0 + at)
+    gain.gain.exponentialRampToValueAtTime(0.3, t0 + at + 0.015)
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + at + 0.35)
+    osc.connect(gain).connect(audio.destination)
+    osc.start(t0 + at)
+    osc.stop(t0 + at + 0.36)
+  }
+}
+
+$('sound').addEventListener('click', () => {
+  const wasOn = audio?.state === 'running'
+  if (muted) muted = false
+  else if (wasOn) muted = true
+  localStorage.setItem(MUTE_KEY, muted ? '1' : '0')
+  paintSound()
+})
+for (const type of ['pointerdown', 'keydown']) document.addEventListener(type, unlockAudio, true)
+paintSound()
 
 let inFlight = false
 async function refresh() {

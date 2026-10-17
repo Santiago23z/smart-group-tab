@@ -24,6 +24,8 @@
     <p class="brand">Ronda <span>Cocina</span></p>
     <span id="clock" class="clock"></span>
     <!-- Money received today; the breakdown is one tap away. -->
+    <!-- A chime for each new order. Browsers allow sound only after a tap. -->
+    <button class="secondary sound" id="sound" data-state="locked" aria-pressed="false">Toca para sonido</button>
     <button class="secondary takings" id="open-takings">Hoy <strong id="takings-total">$0</strong></button>
     <button class="secondary" id="open-menu">Carta</button>
   </header>
