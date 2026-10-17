@@ -22,7 +22,14 @@ every reason that applies:
 A session in `requires_staff_attention` for which no reason can be derived SHALL still be listed,
 with an unknown reason. An alert that cannot explain itself is still an alert.
 
-Sessions in any other state SHALL NOT be listed.
+The staff screen SHALL also list every session that is not `closed` in which some participant has
+owed part of the tab for longer than the configured threshold, with the reason **cuenta sin pagar
+hace rato**: each such participant's nickname, unpaid amount, and how long it has been unpaid,
+counted from when the oldest of their unpaid shares went to the kitchen. This reason SHALL NOT
+change the session's state and SHALL NOT count as a reason when deciding whether a flagged session
+is clear.
+
+Sessions in any other situation SHALL NOT be listed.
 
 #### Scenario: A late payment
 
@@ -41,8 +48,33 @@ Sessions in any other state SHALL NOT be listed.
 
 #### Scenario: A healthy table
 
-- **WHEN** a session is `open`
+- **WHEN** a session is `open` and nobody has owed on its tab for longer than the threshold
 - **THEN** it is not listed
+
+#### Scenario: Ana has owed for two hours
+
+- **WHEN** at an `open_tab` table Ana's dishes went to the kitchen two hours ago, she has not paid,
+  and the threshold is 90 minutes
+- **THEN** the table is listed with reason "cuenta sin pagar hace rato", Ana's unpaid amount and
+  how long
+- **AND** the session stays `open`
+
+#### Scenario: Only who is over the threshold
+
+- **WHEN** Ana's part has been unpaid for two hours and Beto's for ten minutes
+- **THEN** the reason names Ana and not Beto
+
+#### Scenario: Paying clears it
+
+- **WHEN** Ana pays her part of the tab
+- **THEN** the reason no longer names her, and the table leaves the list if nothing else applies
+
+#### Scenario: It does not keep a flagged table flagged
+
+- **WHEN** a flagged table's only flagging reason is resolved by staff while Ana still owes past the
+  threshold
+- **THEN** the session leaves `requires_staff_attention`, and the table stays listed only for the
+  unpaid tab
 
 ### Requirement: A stopped worker is reported
 
@@ -83,13 +115,19 @@ new incident at an acknowledged table is not hidden.
 ### Requirement: Alerts are for staff only and carry no diner payment details
 
 Reading alerts and acknowledging them SHALL require the staff credential. Alerts SHALL NOT expose
-payment provider references or participants' payment details; amounts are shown only as the total
-credited to the session.
+payment provider references or participants' payment details. Amounts shown SHALL be limited to
+the total credited to the session and, for "cuenta sin pagar hace rato", each listed participant's
+unpaid part of the tab.
 
 #### Scenario: Unauthenticated request
 
 - **WHEN** a request for alerts arrives without the staff credential
 - **THEN** it is refused with an authentication error
+
+#### Scenario: What an unpaid-tab alert shows
+
+- **WHEN** a table is listed for a long-unpaid tab
+- **THEN** it shows nicknames and unpaid amounts, and no payment reference
 
 ### Requirement: An alert clears when its causes are resolved
 

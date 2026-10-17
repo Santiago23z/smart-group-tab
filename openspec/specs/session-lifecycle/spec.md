@@ -85,8 +85,8 @@ send SHALL be ignored, and the answer SHALL say which mode the table follows.
 
 Every decision about that session SHALL read the session's copy, never the venue's current
 configuration. A venue that changes its configuration SHALL NOT change the rules governing
-sessions already open. The only change to a session's mode after it opens SHALL be the switch to a
-tab described in "A table paying each round can switch to a tab".
+sessions already open. After it opens, a session's mode SHALL change only as described in
+"A table changes how it pays".
 
 #### Scenario: Venue reconfigures mid-service
 
@@ -121,8 +121,10 @@ session's mode and the round's number, and SHALL be fixed on the round when it i
 - `open_tab`: no round requires prepayment.
 - `hybrid`: round 1 requires prepayment; rounds 2 and later do not.
 
-When a session switches to a tab, the requirement SHALL be cleared on its current `draft` round;
-rounds already closed SHALL keep the requirement they were created with.
+When a session changes how it pays, its current `draft` round SHALL take the new mode's
+requirement. Rounds already sent to the kitchen SHALL keep the requirement they were created
+with. A round in collection when the table switches to a tab SHALL be handled as described in
+round-lifecycle "A round in collection goes to the kitchen when its table switches to a tab".
 
 #### Scenario: Hybrid first round
 
@@ -139,6 +141,12 @@ rounds already closed SHALL keep the requirement they were created with.
 - **WHEN** a `pay_before_order` session with a dish in its draft round switches to a tab
 - **AND** that round is then closed
 - **THEN** it is dispatched without collection
+
+#### Scenario: The draft round follows a switch back
+
+- **WHEN** an `open_tab` session with a dish in its draft round switches to paying each round
+- **AND** that round is then closed
+- **THEN** it moves to `locked_for_payment` and the kitchen is not fired
 
 ### Requirement: Hybrid rounds after the first draw on the prepaid balance
 
@@ -239,16 +247,20 @@ it pays. At the table, every diner's screen SHALL say how the table pays.
 - **WHEN** the table's status is requested without joining
 - **THEN** the answer carries no nickname, item, amount or session identifier
 
-### Requirement: A table paying each round can switch to a tab
+### Requirement: A table changes how it pays
 
-Any diner at a `pay_before_order` session SHALL be able to switch the session to `open_tab`, as
-long as the session is not closed, the bill has not been asked for, and no round is
-`locked_for_payment` or `requires_staff_attention`. Otherwise the switch SHALL be refused with its
-reason and change nothing.
+Any diner of a session SHALL be able to change how the whole table pays, between
+`pay_before_order` and `open_tab`, in either direction, as long as:
 
-After the switch, rounds closed from then on SHALL go to the kitchen without collection, and the
-tab SHALL hold only what went to the kitchen unpaid: rounds paid before the switch SHALL NOT be
-charged again. A switch from `open_tab` to paying each round SHALL NOT be offered.
+- the session is not closed and the bill has not been asked for;
+- no share of the session is held by a live reservation (nobody is in the middle of paying);
+- no round of the session is `requires_staff_attention`;
+- the session is not `hybrid`.
+
+Otherwise the change SHALL be refused with its reason and change nothing. Choosing the mode the
+table already has SHALL change nothing. Unpaid shares of rounds already sent to the kitchen stay
+on the tab whatever the table switches to, and SHALL be paid when the bill is asked for or before
+it, as tab-settlement describes.
 
 #### Scenario: Ana stops paying each round
 
@@ -257,18 +269,20 @@ charged again. A switch from `open_tab` to paying each round SHALL NOT be offere
 - **THEN** round 2 goes to the kitchen unpaid
 - **AND** when she asks for the bill, the tab holds round 2 only
 
-#### Scenario: Not while a round is being collected
+#### Scenario: Back to paying each round
 
-- **WHEN** a round of the table is `locked_for_payment` and a diner asks to switch to a tab
-- **THEN** the switch is refused because a round is in collection, and the session stays
-  `pay_before_order`
+- **WHEN** an `open_tab` table with round 1 unpaid in the kitchen switches to paying each round
+- **AND** it orders and closes round 2
+- **THEN** round 2 is collected before the kitchen sees it
+- **AND** round 1 is still on the tab
+
+#### Scenario: Not while someone is paying
+
+- **WHEN** a diner holds a live reservation on a share of the table and another diner asks to
+  change how the table pays
+- **THEN** the change is refused because someone is paying, and nothing changes
 
 #### Scenario: Not after the bill
 
-- **WHEN** the table has asked for the bill and a diner asks to switch
-- **THEN** the switch is refused and nothing changes
-
-#### Scenario: Only one way
-
-- **WHEN** a diner at an `open_tab` table asks to switch
-- **THEN** the switch is refused and nothing changes
+- **WHEN** the table has asked for the bill and a diner asks to change how it pays
+- **THEN** the change is refused and nothing changes
